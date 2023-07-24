@@ -1,0 +1,339 @@
+---
+title: "Análisis de variables latentes"
+author: "Gianfranco Raúl Romero Sucapuca"
+date: '2022-06-10'
+output: html_document
+---
+
+Muchas veces queremos saber si las algun conjunto de variables representa algun concepto, al cual se le denomina técnicamente variable latente. Las técnicas son variadas, pero aquí aplicaremos análisis factorial, el exploratorio y el confirmatorio para tratar de reducir varias variables en otra u otras más simples.
+
+# Análisis Factorial Exploratorio (EFA)
+
+Este análisis busca saber si el índice (concepto no medible) utiliza correctamente los indicadores (concepto medible). Busca saber si el cálculo usado para obtener el índice es el correcto.
+
+## Preparación de Datos:
+
+Para esta sesión trabajaremos con la data de estos links:
+
+https://en.wikipedia.org/wiki/Democracy_Index
+
+```{r}
+library(htmltab)
+
+demoL=c("https://en.wikipedia.org/wiki/Democracy_Index", 
+        '//*[@id="mw-content-text"]/div[1]/table[6]/tbody')
+
+demo  = htmltab(doc = demoL[1], which  = demoL[2], encoding = "UTF-8")
+
+# limpieza
+demo[,]=lapply(demo[,], trimws,whitespace = "[\\h\\v]") # no blanks
+
+library(stringr) # nombres simples
+names(demo)=str_split(names(demo),">>",simplify = T)[,1]
+names(demo)=trimws(names(demo),whitespace = "[\\h\\v]")
+
+## Formateo
+#guion invisible
+names(demo)=gsub('\u00AD','',names(demo))
+#capitalizar
+names(demo)=str_to_title(names(demo))
+#espacios por "_"
+names(demo)=names(demo)=gsub('\\s','_',names(demo))
+
+# Eliminemos columnas que no usaremos:
+demo[,c(1,2,4,6)]=NULL
+
+str(demo)
+```
+
+```{r}
+# Tipo de variables:
+
+## En demo:
+# a numerica
+demo[,-1]=lapply(demo[,-1],as.numeric)
+
+# sin perdidos:
+demo=na.omit(demo)
+```
+
+## Proceso del Analisis Factorial Exploratorio (EFA)
+
+El análisis factorial exploratorio requiere que hagamos algunas observaciones previas.
+
+1. Calculemos matriz de correlación:
+
+```{r}
+dontselect=c("Country","Overall_Score")
+select=setdiff(names(demo),dontselect) 
+theData=demo[,select] # sin los Scores ni nombre de país.
+
+
+# esta es:
+library(polycor) #Polycor halla la relación policórica, pues funciona con variables categóricas y numéricas #Cuando solo se usa con numéricas, calcula el pearson, la correlación.
+corMatrix=polycor::hetcor(theData)$correlations
+```
+
+2. Explorar correlaciones:
+
+Sin evaluar significancia:
+
+```{r}
+library(ggcorrplot)
+
+ggcorrplot(corMatrix)
+```
+
+Se ve la correlación netre variables. Mientras más fuerte sea el color, mayor será la correlación. Obviamente, la diagonal es ignorada pues compara una variable con sí misma. Si no hay correlación, se ha armado un mal índice.
+
+Si puedes ver bloques correlacionados, hay esperanza de un buen analisis factorial.
+
+3. Verificar si los datos permiten factorizar:
+
+```{r}
+library(psych)
+psych::KMO(corMatrix) #Busca saber si la data se adecua a un análisis factorial. El Overall MSA en este caso es 0.85, lo cual es aceptable. Generalmente, se aceptan MSA mayores a 0.6 en CC.SS.
+```
+
+4. Verificar si la matriz de correlaciones es adecuada
+
+Aqui hay dos pruebas:
+
+Es bueno que en ambas pruebas salga FALSE
+
+**-Hnula:** La matriz de correlacion es una matriz identidad
+
+```{r}
+cortest.bartlett(corMatrix,n=nrow(theData))$p.value>0.05
+```
+
+**-Hnula:** La matriz de correlacion es una matriz singular.
+
+```{r}
+library(matrixcalc)
+
+is.singular.matrix(corMatrix)
+```
+
+5. Determinar en cuantos factores o variables latentes podríamos redimensionar la data:
+
+```{r}
+fa.parallel(theData,fm = 'ML', fa = 'fa',correct = T) #Te sugiere en que tantos factores deberían agruparse las variables en base a que tan similares son #Lo ideal es que solo tengas 1 factor, pues eso significa que todas las variables son lo suficientemente similares para que puedan agruparse en un solo concepto, en este caso, la democracia.
+```
+
+Se sugiere 1, lo esperado, sigamos.
+
+6. Redimensionar a numero menor de factores
+
+-Resultado inicial:
+
+```{r}
+library(GPArotation)
+resfa <- fa(theData,
+            nfactors = 2, #Un solo factor
+            cor = 'mixed', #Matriz policórica
+            rotate = "varimax", #Rotación varimax. Asegura que se traten de dos variable latentes diferentes #Como en este caso solo usamos un factor, no es relevante
+            fm="minres")
+print(resfa$loadings)
+```
+
+El MR1 usualmente se considera como "bueno" a partir de 0.4. En este caso, el que menos aporta es la cultura política. La proporción de la varianza nos muestra todo lo que tienen en común las variables en relación con el índice (democracia). En este caso, tienen un 73% en común, ha recuperado un 73% de información.
+
+-Resultado mejorado (solo apropiado si hay más de un factor):
+
+```{r}
+print(resfa$loadings,cutoff = 0.5) #Esto borra alguna variable que no pase de 0.5
+```
+
+Cuando logramos que cada variable se vaya a un factor, tenemos una estructura simple.
+
+-Resultado visual:
+
+```{r}
+fa.diagram(resfa)
+```
+
+7. Evaluando Resultado obtenido:
+
+-¿Qué variables aportaron más a los factores?
+
+```{r}
+sort(resfa$communality) #sort lo ordena en orden ascendente
+```
+
+-¿Qué variables contribuyen a mas de un factor?
+
+```{r}
+sort(resfa$complexity)
+```
+
+8. Posibles valores proyectados:
+
+¿Qué nombres les darías?
+
+```{r}
+as.data.frame(resfa$scores)%>%head()
+```
+
+El nombre sería democracia. Y debe estar correlacionado con el puntaje propuesto por TheEconomist:
+
+```{r}
+demo$efa=resfa$scores
+
+ggplot(data=demo,aes(x=Overall_Score,y=efa[,"MR1"])) + geom_point() + theme_minimal()
+ggplot(data=demo,aes(x=Overall_Score,y=efa[,"MR2"])) + geom_point() + theme_minimal()
+```
+
+Nota que los valores no son parecidos. Pero podríamos cambiar el rango:
+
+```{r}
+library(BBmisc)
+
+demo$efa_ok_1=normalize(demo$efa[,"MR1"], 
+                       method = "range", 
+                       margin=2, # by column
+                       range = c(0, 10))
+
+demo$efa_ok_2=normalize(demo$efa[,"MR2"], 
+                       method = "range", 
+                       margin=2, # by column
+                       range = c(0, 10))
+```
+
+Esto te daría:
+
+```{r}
+ggplot(data=demo,aes(x=Overall_Score,y=efa_ok_1)) + geom_point() + theme_minimal()
+
+ggplot(data=demo,aes(x=Overall_Score,y=efa_ok_2)) + geom_point() + theme_minimal()
+```
+
+# Análisis factorial confirmatorio
+
+Si la exploración apoyaba nuestro marco teórico, podemos proponer cómo construir los indices:
+
+names(theData)
+
+```{r}
+model <- ' democracia  =~  Funcâtioningof_Governâment + Poliâticalculâture + Civilliberâties + Elecâtoral_Proâcessand_Pluraâlism + Poliâticalparticiâpation + aii + lei + sci' #=~ significa que democracia se explica por las variables
+```
+
+Ahora veamos qué arroja el modelo:
+
+```{r}
+# normalizar las variables:
+theDataNorm=as.data.frame(scale(theData))
+
+library(lavaan)
+
+cfa_fit <- cfa(model, data=theDataNorm, 
+           std.lv=TRUE,  
+           missing="fiml")
+```
+
+Preparo los tests:
+
+```{r}
+allParamCFA=parameterEstimates(cfa_fit,standardized = T)
+allFitCFA=as.list(fitMeasures(cfa_fit))
+```
+
+Veamos resultados:
+
+-Si cada indicador tiene una buena conexión con su latente (ver p valor):
+
+```{r}
+allParamCFA[allParamCFA$op=="=~",]
+```
+
+Averigüemos qué tan bien salió el modelo:
+
+-El ChiSquare es NO significativo? (p_value debe ser mayor a 0.05 para que sea bueno)
+
+```{r}
+allFitCFA[c("chisq", "df", "pvalue")] # pvalue>0.05
+```
+
+-El Índice Tucker Lewi es mayor a 0.9?
+
+```{r}
+allFitCFA$tli # > 0.90
+```
+
+-La Raíz del error cuadrático medio de aproximación es menor a 0.05?
+
+```{r}
+allFitCFA[c('rmsea.ci.lower','rmsea' ,'rmsea.ci.upper')] # 0.05 en el Int de Conf?
+```
+
+Ya sabemos que no hay buen augurio.
+
+```{r}
+scorescfa=normalize(lavPredict(cfa_fit),
+                    method = "range", 
+                    margin=2, # by column
+                    range = c(0, 10))
+```
+
+De ahi que:
+
+```{r}
+demo$cfa_ok=scorescfa
+```
+
+Veamos ambos scores calculados
+
+```{r}
+ggplot(data=demo,aes(x=cfa_ok,y=efa_ok)) + geom_point() + theme_minimal()
+```
+
+**EJERCICIO**
+
+Añada otro concepto latente que use varias variables. Siga todos los pasos anteriores.
+
+```{r}
+demo$Country=gsub('Â'," ",demo$Country)
+
+demo$Country =trimws(demo$Country,which=c("left"),whitespace = "[\\h\\v]")
+```
+
+```{r}
+library(rio)
+HDI = import("HDI_modified.xlsx")
+str(HDI)
+```
+
+```{r}
+HDI$Country=HDI$...1
+HDI=HDI[,-1]
+
+HDI= HDI[,c(4,1,2,3)]
+```
+
+
+```{r}
+demo=merge(demo,HDI)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

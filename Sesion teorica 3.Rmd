@@ -1,0 +1,271 @@
+---
+title: "Regresión logística - Regresión no lineal - Modelo binomial logístico"
+author: "Gianfranco Raúl Romero Sucapuca"
+date: '2022-04-29'
+output: html_document
+---
+
+Esta investigación desea saber si el ofrecerse como voluntario está relaciondo con el sexo de la persona, su nivel de neuroticismo y su nivel de extraversión.
+
+```{r}
+link = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTnBAuw8v3PgGMivOBI9tFfGjVrZsVnteUF2y44HjZneYoajlrb9k61kWN300Q-n1q04iy8_nsB68n_/pub?gid=1431542138&single=true&output=csv"
+vol = read.csv(link, stringsAsFactors = F)
+```
+
+```{r}
+str(vol)
+```
+
+```{r}
+vol[, c(3, 4)] = lapply(vol[, c(3, 4)], as.factor)
+```
+
+```{r}
+summary(vol)
+```
+
+```{r}
+table(vol$volunteer) #Para ver tabla original
+```
+
+```{r}
+table(as.numeric(vol$volunteer)) #Para ver tabla como número
+```
+
+#Análisis bivariado
+
+#Tabla de contingencia
+
+Se busca saber si ser mujer está relacionado con ser voluntario en proyectos de investigación
+
+```{r}
+dep = vol$volunteer # a la fila (Dependiente)
+ind = vol$sex # a la columna (Independiente)
+
+volsexTable = table(dep, ind, dnn = c('volunteer', 'sex')) #Tabla de contingencia #dnn=Títulos
+
+### suma por columna
+addmargins(volsexTable, margin = 1)
+```
+
+#Probabilidades y ODDS
+
+Probabilidad de que una mujer escogida al azar sea voluntaria. División entre voluntarias y el total de mujeres
+
+```{r}
+probMV = volsexTable[2, 1] / sum(volsexTable[, 1])
+probMV
+```
+
+Recuperar los valores de la tabla de contingencia. Es la fracción de la probabilidad
+
+```{r}
+library(MASS)
+fractions(probMV)
+```
+
+Representemos el odds que sea voluntaria. División entre ser voluntaria y no serlo
+
+Odds no es una probabilidad.
+
+```{r}
+volsexTable[2, 1] / volsexTable[1, 1]
+```
+
+Que se origina de:
+
+```{r}
+fractions(volsexTable[2, 1] / volsexTable[1, 1])
+```
+
+El odds suele representarse además como la razón entre dos probabilidades: la probabilidad que ocurra un evento dividido por la probabilidad que NO ocurra ese evento:
+
+```{r}
+OddsMV = probMV / (1 - probMV)
+OddsMV
+```
+
+Probabilidad que un hombre escogido al azar sea voluntario:
+
+```{r}
+probHV = volsexTable[2, 2] / sum(volsexTable[, 2])
+probHV
+```
+
+```{r}
+fractions(probHV) #Probabilidad en fracción
+```
+
+Odds de que el hombre sea voluntario
+
+```{r}
+OddsHV = probHV / (1 - probHV)
+OddsHV
+```
+
+```{r}
+fractions(OddsHV) #Odds en fracción
+```
+
+Comparar mujer y hombre:
+
+```{r}
+#Mujer/Hombre
+(OR_MH = OddsMV / OddsHV)
+```
+
+Con ese valor, ya sabemos que el odds de ser mujer es 0.28 por encima del odds del hombre. El odds ratio (OR) puede ir de 0 a infinito. Un OR de 1 implica que no hay diferencias.
+
+```{r}
+fractions(OddsMV / OddsHV)
+```
+
+Porcentajes y gráficas
+
+```{r}
+prop.table(volsexTable, margin = 2)
+```
+
+```{r}
+mosaicplot(t(volsexTable), col = c("orange", "green")
+           ) # Es preferible usar porcentajes para los gráficos
+```
+
+#Regresión logística
+
+La regresión logística modela el comportamiento de la probabilidad del evento de interés:
+
+```{r}
+### semilla
+
+set.seed(2019)
+
+### primer modelo:
+#data como subset
+vars1 = vol[, c("volunteer", "sex")]
+
+#regresion
+rlog1 = glm(volunteer ~ ., data = vars1, family = binomial)
+
+#resultado clásico:
+summary(rlog1)
+```
+
+La tabla muestra que ser hombre reduce la probabilidad de ser voluntario
+
+```{r}
+# recuerda poner: ```{r, results='asis'}
+library(stargazer)
+#resultado
+stargazer(rlog1, type = "text")
+```
+
+El gráfico anterior tomó como referencia el ser mujer, pero esto se puede cambiar:
+
+```{r}
+# nueva referencia
+vol$sex = relevel(vol$sex, ref = "male")
+
+# rehago subset
+vars1 = vol[, c("volunteer", "sex")]
+
+rlog1 = glm(volunteer ~ ., data = vars1, family = binomial)
+```
+
+```{r}
+#resultado
+stargazer(rlog1, type = "text")
+```
+
+Vemos que sexo tiene efecto, y el símbolo del coeficiente propone que el efecto es positivo. Ese valor, como modela a un logaritmo, no es fácil de interpretar. Pero, si le aplicas exponencial, hallarás un valor conocido:
+
+```{r}
+sexF = coef(rlog1)["sexfemale"]
+exp(sexF)
+```
+
+```{r}
+vars2 = vol[, c("volunteer", "sex", "neuroticism")]
+rlog2 = glm(volunteer ~ ., data = vars2, family = binomial)
+```
+
+```{r}
+vars3 = vol[, c("volunteer", "sex", "neuroticism", "extraversion")]
+rlog3 = glm(volunteer ~ ., data = vars3, family = binomial)
+```
+
+```{r}
+library(stargazer)
+
+stargazer(rlog1,
+          rlog2,
+          rlog3,
+          type = "text",
+          no.space = F,
+          digits = 3,
+          digit.separator = ""
+) #Los modelos deberían tener el mismo número de observaciones
+```
+
+Comparar varios modelos prueba que ser mujer si tiene efecto en ser voluntaria
+
+#Comparando modelos
+
+Las tres regresiones presentan valores diferentes del criterio de información de Akaike (AIC), se considera que un modelo es mejor si tiene un AIC menor a los demás. Esto sugiere qu el tercer modelo es el mejor y el segundo el peor. Como los valores del AIC están muy cercanos confirmemos usando el test de razón de verosimilitud (likelihood ratio test -LRT):
+
+```{r}
+library(lmtest)
+
+lrtest(rlog1, rlog2, rlog3)
+```
+
+Al final, se puede ver la probabilidad de que los modelos sean iguales. Por ello, es mejor escoger el que tenga el resultado menor. Los *** también sirven como referencia para escoger un modelo
+
+```{r}
+library(pander)
+pander(lrtest(rlog1, rlog2, rlog3), caption = "LRT para los tres modelos")
+```
+
+Se debe prestar atención al Pr(>Chisq)
+
+#Efectos marginales
+
+Para saber CUANTO afecta cada variable independiente a la dependiente
+
+```{r}
+# interpracion usando marginal effects:
+#install.packages("margins")
+library(margins)
+#
+(model = margins(rlog3))
+```
+
+```{r}
+(margins = summary(model))
+```
+
+```{r}
+library(ggplot2)
+base = ggplot(margins, aes(x = factor, y = AME)) + geom_point()
+base
+```
+
+```{r}
+base +  geom_errorbar(aes(ymin = lower, ymax = upper))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
