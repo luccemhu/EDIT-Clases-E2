@@ -17,20 +17,24 @@ output:
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
 
-# I. De Correlación a regresión
+I. De Correlación a regresión
+============================================================
 
 - Utilizaremos la técnica de la regresión al ir más allá de la correlación (Pearson, Spearman, etc.) o las diferencias de valores centrales (t test, kruska wallis, etc.).
 
 ```{r}
 library(rio) # Importamos la data:
 hsb = import("https://github.com/luccemhu/EDIT-Clases-E2/raw/main/SESI%C3%93N%201/hsb_ok.xlsx")
-#str(hsb) # Tipos de datos reconocidos por R
+#str(hsb) # Tipos de datos reconocidos por R, ya que...
 # Todo software lee la data a su modo y no siempre es la que se necesita.
-# Por ello, debemos saber qué significa cada columna, etc.
+# Por ello, debemos saber qué significa cada columna, su valor, etc.
+# Para ello, es importante el codebook o diccionario de datos o metadata
+# o el manual metodológico, etc. (Indicarlo en el trabajo).
 ```
 
+## Preparación de los datos
 ```{r}
-# Formateamos porque...
+# Formateamos:
 categoricals = c("SEX", "RACE", "SES", "SCTYP", "HSP", "CAR")
 
 hsb[, categoricals] = lapply(hsb[, categoricals], as.factor) # A factor
@@ -57,53 +61,72 @@ hsb$SES = ordered(hsb$SES,
                   levels = c(1, 2, 3),
                   labels = c("Low", "Medium", "High"))
 
-#hsb
+#hsb #Ahora veamos la data formateada
 ```
 
-### La variable de interés es la V. dependiente: MATH (desempeño en matematicas)
+## Correlación:
 
-### V. independiente: WRTG (desempeño en escritura)
+### La variable de interés es la V. dependiente: MATH (desempeño en matemáticas)
+
+- Consideremos que nos interesa saber la posible relacion de WRTG en MATH
+
+### 1. V. independiente: WRTG (desempeño en escritura)
+
+- Ya que son `dos` variables numéricas: usaremos una correlación:
   
-- Son `dos` variables numéricas, debemos usar una correlación:
-
 ```{r}
-# Gráfica de correlación:
+# Gráfica de correlación: (2 dimensiones)
 library(ggplot2)
 base = ggplot(data = hsb, aes(x = WRTG, y = MATH))
-base + geom_point(aes(color = SCI))
+base + geom_point()
 # Hay aparente relación:
 ```
 
-#  Índices de correlación:
-```{r}
-f1 = formula( ~ MATH + WRTG) # Asimétricas, correlacionadas pero ninguna es V.D. o V.I.
+###  Índices de correlación:
+```{r eval=FALSE}
+# Asimétricas, correlacionadas pero ninguna es V.D. o V.I:
+f1 = formula( ~ MATH + WRTG) 
 
 # camino parametrico:
 pearsonf1 = cor.test(f1, data = hsb)[c('estimate', 'p.value')]
 pearsonf1
+# el coeficiente de Pearson 0.6326664 (con p-value= 0).
 
 # camino no parametrico
-spearmanf1 = cor.test(f1, data = hsb, method = 'spearman')[c('estimate', 'p.value')]
+spearmanf1 = cor.test(f1, data = hsb, 
+                      method = 'spearman')[c('estimate', 'p.value')]
 spearmanf1
-
-# el coeficiente de Pearson 0.6326664 (con p-value= 0).
 # Spearman:0.6415126 (con p-value= 0).
 ```
 
-```{r}
+### 2. V. independiente: SCI (desempeño en ciencias)
+
+Como es otra variable númerica, no podemos calcular la correlacion de 3 variables, pero sí se puede ver visualmente (Figura 10).
+
+- Nota: *no se ejecutarán los chunks, solo se muestra el código con esta V.I*:
+```{r, eval=FALSE}
+# Gráfica de Correlación utilizando el código de la primera gráfica:
+base + geom_point(aes(color = SCI))
+```
+
+###  Índices de correlación:
+```{r, eval=FALSE}
 f2 = formula( ~ MATH + SCI)
 
 # camino parametrico
 pearsonf2 = cor.test(f2, data = hsb)[c('estimate', 'p.value')]
+# El coeficiente de Pearson (0.6495261, p-value= 0)
 
 # camino no parametrico
 spearmanf2 = cor.test(f2, data = hsb, method = 'spearman')[c('estimate', 'p.value')]
+# El coeficiente de Spearman (0.6551515,p-value= 0)
 
-# correlación de SCI con MATH, obteniendo el Pearson (0.6495261,p-value= 0) y el Spearman (0.6551515,p-value= 0).
 pearsonf2
 spearmanf2
 ```
 
+
+### 3. V. independiente: SEX
 
 ```{r}
 base = ggplot(data = hsb, aes(x = SEX, y = MATH))
@@ -189,6 +212,10 @@ scatterplot3d(hsb[, c('SCI', 'WRTG', 'MATH')], color = colors)
 ```
 
 
+
+II. Regresión Lineal
+============================================================
+
 ```{r}
 modelo1 = formula(MATH ~ WRTG)
 modelo2 = formula(MATH ~ WRTG + SCI)
@@ -196,6 +223,7 @@ modelo3 = formula(MATH ~ WRTG + SCI + SEX)
 ```
 
 ```{r}
+# H1: el nivel de desempeño en escritura afecta el desempeño en matemáticas:
 summary(lm(modelo1, data = hsb))
 ```
 
