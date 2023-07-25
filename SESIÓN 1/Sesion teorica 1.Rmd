@@ -1,5 +1,5 @@
 ---
-title: "Regresión Lineal Multivariada"
+title: "Regresión Lineal Multivariada (I)"
 subtitle: 'Repaso 1 - Introducción'
 date: "2023-07-24"
 author: "Gianfranco Romero & Joel Hu | \n **[@GianfrancoRomero](https://github.com/GianfrancoRomero)** \n a20196091@pucp.edu.pe & \n **[@luccemhu](https://github.com/luccemhu)** \n a20196510@pucp.edu.pe"
@@ -17,38 +17,37 @@ output:
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
 
-```{r}
-library(rio)
-organization = 'https://github.com/Estadistica-AnalisisPolitico'
-repo = '/DataFiles-estadistica/raw/main/'
-file = 'hsb_ok.xlsx'
-hsb = import(paste0(organization, repo, file)) # importando 3 datas
+# I. De Correlación a regresión
 
-#str(hsb)
+- Utilizaremos la técnica de la regresión al ir más allá de la correlación (Pearson, Spearman, etc.) o las diferencias de valores centrales (t test, kruska wallis, etc.).
+
+```{r}
+library(rio) # Importamos la data:
+hsb = import("https://github.com/luccemhu/EDIT-Clases-E2/raw/main/SESI%C3%93N%201/hsb_ok.xlsx")
+#str(hsb) # Tipos de datos reconocidos por R
 ```
 
 ```{r}
-# FORMATEAMOS:
+# Formateamos porque...
+# Todo software lee la data a su modo y no siempre es la que se necesita.
+# Por ello, debemos saber qué significa cada columna, etc.
+
 categoricals = c("SEX", "RACE", "SES", "SCTYP", "HSP", "CAR")
 
-hsb[, categoricals] = lapply(hsb[, categoricals], as.factor)
+hsb[, categoricals] = lapply(hsb[, categoricals], as.factor) # A factor
 
 # nominales
 hsb$SEX = factor(hsb$SEX,
                  levels = c(1, 2),
                  labels = c("Male", "Female"))
 
-hsb$RACE = factor(
-  hsb$RACE,
-  levels = c(1, 2, 3, 4),
-  labels = c("Hispanic", "Asian", "Black", "White")
-)
+hsb$RACE = factor(hsb$RACE,
+                  levels = c(1, 2, 3, 4),
+                  labels = c("Hispanic", "Asian", "Black", "White"))
 
-hsb$HSP = factor(
-  hsb$HSP,
-  levels = c(1, 2, 3),
-  labels = c("General", "Academic", "Vocational")
-)
+hsb$HSP = factor(hsb$HSP,
+                 levels = c(1, 2, 3),
+                 labels = c("General", "Academic", "Vocational"))
 
 hsb$SCTYP = factor(hsb$SCTYP,
                    levels = c(1, 2),
@@ -62,17 +61,15 @@ hsb$SES = ordered(hsb$SES,
 #hsb
 ```
 
+### La variable de interés es la V. dependiente: MATH (desempeño en matematicas)
 
-## La variable de interés:  - V. dependiente: MATH (desempeño en matematcas)
-
-  - V. independiente: WRTG
+### V. independiente: WRTG (desempeño en escritura)
   
-- son dos variables de tipo numérico debemos usar una correlación
+- Son `dos` variables numéricas, debemos usar una correlación:
 
 ```{r}
-# Gráfica de correlación
+# Gráfica de correlación:
 library(ggplot2)
-
 base = ggplot(data = hsb, aes(x = WRTG, y = MATH))
 base + geom_point(aes(color = SCI))
 # Hay aparente relación:
@@ -90,7 +87,8 @@ pearsonf1
 spearmanf1 = cor.test(f1, data = hsb, method = 'spearman')[c('estimate', 'p.value')]
 spearmanf1
 
-# el coeficiente de Pearson 0.6326664 (con p-value= 0). Spearman:0.6415126 (con p-value= 0).
+# el coeficiente de Pearson 0.6326664 (con p-value= 0).
+# Spearman:0.6415126 (con p-value= 0).
 ```
 
 ```{r}
@@ -116,38 +114,28 @@ base + geom_boxplot(notch = T) +  geom_jitter(color = "black",
 ```
 
 ```{r}
-#install.packages("ggpubr")
 library(ggpubr)
 ggerrorplot(data = hsb, x = "SEX", y = "MATH")
 ```
 
 ```{r}
-library(ggplot2)
 ggplot(hsb, aes(x = MATH)) +
   geom_histogram(aes(y = ..density..), bins = 20, fill = 'green') +
-  stat_function(
-    fun = dnorm,
-    colour = "red",
-    args = list(
-      mean = mean(hsb$MATH, na.rm = TRUE),
-      sd = sd(hsb$MATH, na.rm = TRUE)
-    )
-  ) +
+  stat_function(fun = dnorm,
+                colour = "red",
+                args = list(mean = mean(hsb$MATH, na.rm = TRUE),
+                            sd = sd(hsb$MATH, na.rm = TRUE))) +
   facet_grid( ~ SEX) +
   coord_flip()
 ```
 
 ```{r}
 # se sugiere normalidad si los puntos no se alejan de la diagonal.
-
-library(ggpubr)
 ggqqplot(data = hsb, x = "MATH") + facet_grid(. ~ SEX)
 ```
 
 ```{r}
-# install.packages("kableExtra")
 library(knitr)
-library(magrittr)
 library(kableExtra)
 h3 = formula(MATH ~ SEX)
 
@@ -171,7 +159,7 @@ shapiroTable = cbind(shapiroTable, WandPval) # todo junto
 names(shapiroTable)[c(1, 3)] = c("SEX", "Pval") # cambia nombre de 1 y 2da columna
 
 
-kable(shapiroTable) %>%
+kable(shapiroTable)  |> 
   kable_styling()
 ```
 
@@ -213,7 +201,6 @@ summary(lm(modelo1, data = hsb))
 ```
 
 ```{r}
-#install.packages("stargazer")
 library(stargazer)
 reg1 = lm(modelo1, data = hsb)
 summary(reg1)
@@ -235,7 +222,6 @@ stargazer(reg2, type = "text", intercept.bottom = FALSE)
 ```
 
 ```{r}
-library(scatterplot3d)
 G  <- scatterplot3d(hsb[, c('SCI', 'WRTG', 'MATH')])
 G$plane3d(reg2, draw_polygon = TRUE, draw_lines = FALSE)
 ```
@@ -255,14 +241,12 @@ summary(reg3)
 ```
 
 ```{r}
-library(scatterplot3d)
 colors <- paleta[as.numeric(hsb$SEX)]
 G  <- scatterplot3d(hsb[, c('SCI', 'WRTG', 'MATH')], color = colors)
 G$plane3d(reg2, draw_polygon = TRUE, draw_lines = FALSE)
 ```
 
 ```{r}
-library(stargazer)
 stargazer(reg1, reg2, reg3, type = "text")
 stargazer(reg1,
           reg2,
@@ -285,10 +269,7 @@ stargazer(reg1,
 ```
 
 ```{r}
-#install.packages("sjPlot")
-library(ggplot2)
 library(sjPlot)
-
 plot_models(reg1,
             reg2,
             reg3,
