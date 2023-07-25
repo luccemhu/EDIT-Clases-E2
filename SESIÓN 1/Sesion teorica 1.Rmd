@@ -25,13 +25,12 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 library(rio) # Importamos la data:
 hsb = import("https://github.com/luccemhu/EDIT-Clases-E2/raw/main/SESI%C3%93N%201/hsb_ok.xlsx")
 #str(hsb) # Tipos de datos reconocidos por R
+# Todo software lee la data a su modo y no siempre es la que se necesita.
+# Por ello, debemos saber qué significa cada columna, etc.
 ```
 
 ```{r}
 # Formateamos porque...
-# Todo software lee la data a su modo y no siempre es la que se necesita.
-# Por ello, debemos saber qué significa cada columna, etc.
-
 categoricals = c("SEX", "RACE", "SES", "SCTYP", "HSP", "CAR")
 
 hsb[, categoricals] = lapply(hsb[, categoricals], as.factor) # A factor

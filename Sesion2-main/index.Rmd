@@ -1,0 +1,422 @@
+---
+title: "Sesión 2"
+output:
+  bookdown::html_document2:
+    code_folding: hide 
+    toc: true
+    toc_float: true
+bibliography: references.bib
+#zotero: true
+---
+
+<center>
+
+<img src="https://github.com/Estadistica-AnalisisPolitico/Images/raw/main/LogoEAP.png" width="500"/>
+
+</center>
+
+Profesor: <a href="http://www.pucp.edu.pe/profesor/jose-manuel-magallanes/" target="_blank">Dr. José Manuel MAGALLANES REYES, Ph.D.</a> <br>
+
+-   Profesor del Departamento de Ciencias Sociales, Sección de Ciencia Política y Gobierno.
+
+-   [Oficina 105](https://goo.gl/maps/xuGeG6o9di1i1y5m6) - Edificio CISEPA / ECONOMIA / CCSS
+
+-   Telefono: (51) 1 - 6262000 anexo 4302
+
+-   Correo Electrónico: [jmagallanes\@pucp.edu.pe](mailto:jmagallanes@pucp.edu.pe)
+
+<a id='beginning'></a>
+
+------------------------------------------------------------------------
+
+<center><header><h2>Regresión Lineal Multivariada (II)</h2></header></center>
+
+
+<center><a href="https://doi.org/10.5281/zenodo.7017887"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.7017887.svg" alt="DOI"></a>
+
+</center>
+------------------------------------------------------------------------
+
+<a id='rlin'></a>
+
+# Regresión Lineal
+
+La regresión es una técnica donde hay que definir una variable dependiente y una o más independientes. Las independientes pueden tener rol predictor, dependiendo del diseño de investigación, pero cumple siempre un rol explicativo; así, la regresión quiere informar cuánto una variable (*independiente*) puede explicar la variación de otra (*dependiente*), de ahí que es una técnica para probar hipótesis direccionales o asimétricas (las correlaciones tiene hipótesis no direccionales o simétricas).
+
+La regresión lineal busca proponer un modelo, es decir una ecuación, que recoja como una variable explicaría a otra. La regresión lineal es también conocida como la **Regresión Gaussiana**, la cual es aplicable sólo cuando la variable dependiente (la **Y**) es *numérica*, continua, y *no acotada*.
+
+## Caso de Estudio: Pavimentando con votos
+
+Profesores de la Universidad de los Andes [@mejiaguinand2008] decidieron estudiar cómo la distribución de fondos públicos fue afectada por factores políticos durante el primer periodo del Presidente Uribe (2002-2006). Las hipótesis que se plantean son:
+
+-   H1: la asignación presupuestal en infraestructura vial en Colombia responde a los criterios técnicos y económicos determinados en el Plan Nacional de Desarrollo y otros documentos de carácter técnico elaborados por el gobierno.
+
+-   H2: la asignación presupuestal en infraestructura vial en Colombia responde a negociaciones bilaterales entre el ejecutivo y el legislativo basadas en necesidades políticas y electorales de corto plazo.
+
+-   H3: la asignación presupuestal en infraestructura vial en Colombia responde al esfuerzo del gobierno por fortalecer su base social de apoyo local a través de los Consejos Comunales de Gobierno.
+
+Para ello, organizaron estos datos:
+
+<iframe width="700" height="400" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vSRpCC8gKIxMxpK0wjgLcl-GQWdw6sAeB16Sixkq6kZXeTfMS8_n70twbEbQ2tMcGp8tm-6x8qf8ieo/pubhtml?">
+
+</iframe>
+
+Luego de leer el artículo:
+
+1.  ¿Cómo decidieron los autores operacionalizar las variables independientes y la dependiente?
+
+2.  ¿Qué función cumplen las variables de control?
+
+3.  ¿Para que les sirvió la regresión?
+
+4.  ¿Hicieron una regresión por cada hipotesis?
+
+5.  ¿Se probaron todas las hipótesis?
+
+Pasemos a usar los datos en R:
+
+## Preparación de los datos
+
+Veamos los datos del artículo en cuestíon. Los datos tienen estas características una vez cargados en R:
+
+```{r, warning=FALSE, message=FALSE, echo=TRUE}
+#carga de data
+linkToData='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRpCC8gKIxMxpK0wjgLcl-GQWdw6sAeB16Sixkq6kZXeTfMS8_n70twbEbQ2tMcGp8tm-6x8qf8ieo/pub?gid=234740779&single=true&output=csv'
+pavi=read.csv(linkToData)
+str(pavi)
+```
+
+Nótese que debemos tener claro cuáles son categóricas, por lo que debemos identificar como categórico (**factor**) lo que corresponda.
+
+```{r checkCategories}
+seleccion=c("consejocomunal","ejecucion","uribista","priorizado")
+pavi[,seleccion]=lapply(pavi[,seleccion],as.factor)
+```
+
+## Explorando las variables
+
+### Descripción Univariada
+
+Es importante tener una idea clara de las variables en el estudio. Al menos debes tener una tabla con los estadísticos de centralidad y dispersion para el caso numerico ver Tabla \@ref(tab:summaryT).
+
+```{r summaryT, results='asis'}
+library(summarytools)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+
+dfSummary(pavi[,-1],
+          plain.ascii  = FALSE,
+          varnumbers = FALSE,
+          style        = "grid", 
+          graph.col=F,
+          na.col    = FALSE) %>%
+    kable(caption = "Descriptivos Univariados")%>%
+    kable_styling(full_width = F)
+```
+
+Recuerda además que es mejor usar datos sin valores perdidos en los análisis multivariados [^1].
+
+[^1]: Esto puede significar que encuentres resultados distintos a los del trabajo original.
+
+```{r nomissing}
+pavi=pavi[complete.cases(pavi),]
+```
+
+### Descripción Bivariada
+
+Luego, es importante saber qué relación se revela entre la variable dependiente y las demás. Se puede comenzar con las que son numéricas, es decir, haciendo un análisis de correlación. Eso lo apreciamos en la Figura \@ref(fig:corrInfo).
+
+```{r corrInfo, fig.cap="Correlación entre la VD y sus VIs", warning=FALSE, message=FALSE,echo=TRUE}
+colNums=names(pavi)[c(2,6,8,9)]
+numXs=pavi[,colNums]
+library("PerformanceAnalytics")
+chart.Correlation(numXs, histogram=TRUE, pch=19)
+
+```
+
+Por otro lado, podemos revisar la relación con las categóricas. Rapidamente podemos ver la diferencia estadística, parametrica y no paramétrica, por grupos en relación a nuestra dependiente en la Tabla \@ref(tab:diffGroup).
+
+```{r diffGroup,echo=TRUE}
+colCats=setdiff(names(pavi), colNums)[-1]
+diffPara=c()
+diffNoPara=c()
+for (col in colCats){
+    diffPara=c(diffPara,t.test(pavi[,"apropiaciondolar"]~pavi[,col])['p.value']<=0.05)
+    diffNoPara=c(diffNoPara,wilcox.test(pavi[,"apropiaciondolar"]~pavi[,col])['p.value']<=0.05)
+}
+data.frame(cbind(colCats,diffPara,diffNoPara),
+           row.names = 1:length(colCats))%>%kable(caption = "Diferencia de Apropiacion por Grupo")%>%kableExtra::kable_styling(full_width = FALSE)
+    
+
+```
+
+Lo mostrado en la Tabla \@ref(tab:diffGroup) puede visualizarse en la Figura \@ref(fig:boxPlots)
+
+```{r boxPlots, fig.cap="Apropiacion por Grupos"}
+par(mfrow = c(2, 2))  
+
+for (col in colCats) { 
+  boxplot(pavi$apropiaciondolar~pavi[,col],
+       main = col,xlab="",ylab = "")
+}
+```
+
+## Análisis de Regresión
+
+Veamos una hipotesis:
+
+> '*el Beneficio recibido*' en un municipio ha sido afectado por '*el porcentaje de votos recibidos por los candidatos de la oposición a Uribe a la camara de representantes*', controlando por '*tamaño de población*'.
+
+```{r formulaMod1}
+# hipotesis en R
+modelo1=formula(apropiaciondolar~pctopo+poblacioncienmil)
+```
+
+Si deseamos probar esa hipotesis en R, podemos hacer lo siguiente:
+
+```{r uglyReg1, warning=FALSE, message=FALSE, echo=TRUE}
+
+reg1=lm(modelo1,data=pavi)
+summary(reg1)
+
+```
+
+El resultado anterior puede ser presentado de mejor manera usando **modelsummary** package, como se puede ver en la Tabla \@ref(tab:prettyReg1).
+
+```{r prettyReg1, warning=FALSE, message=FALSE, echo=TRUE, results='asis'}
+
+library(modelsummary)
+model1=list('apropiacion (I)'=reg1)
+modelsummary(model1, title = "Regresion: modelo 1",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+<br></br>
+
+Al probar esta hipótesis vemos...
+
+1.  que *pctopo* tiene *efecto significativo* al **0.1** (indicado por el asterisco);
+2.  que ese efecto es *inverso*, pues el coeficiente calculado es negativo; y
+3.  que la *magnitud* de ese efecto es `r round(reg1$coefficients[2],3)`, lo que indica cuanto varía *apropiaciondolar* en promedio cuando *pctopo* se incremente en una unidad, controlando por *poblacioncienmil*.
+
+Esto es información suficiente para representar esa relación con la Ecuación \@ref(eq:reg1).
+
+```{=tex}
+\begin{equation}
+apropiaciondolar = `r reg1$coefficients[1]` + `r reg1$coefficients[2]` \cdot pctopo + `r reg1$coefficients[3]`\cdot poblacioncienmil + \epsilon (\#eq:reg1)
+\end{equation}
+```
+Justamente el *R cuadrado ajustado* (`r summary(reg1)$r.squared`) nos brinda un porcentaje (multiplicalo por 100) que da una pista de nuestra cercanía a una situación perfecta (cuando vale **1**).
+
+> ¿Y sí queremos ver el efecto de consejo comunal (*consejocomunal*)?
+
+```{r modelo2}
+# modelo 1 mas una nueva independiente
+modelo2=formula(apropiaciondolar~pctopo+consejocomunal+poblacioncienmil)
+```
+
+Esta nueva hipótesis desea evaluar si la visita de Uribe a un Consejo Comunal influye en la asignación de presupuesto. El resultado de este proceso lo vemos en la Tabla \@ref(tab:prettyReg2).
+
+```{r prettyReg2, warning=FALSE, message=FALSE, echo=TRUE,results='asis'}
+
+reg2=lm(modelo2,data=pavi)
+model2=list('apropiacion (II)'=reg2)
+modelsummary(model2, title = "Regresion: modelo 2",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+Al probar esta hipótesis vemos que..
+
+-   *pctopo* tiene *efecto significativo* al **0.1** (indicado por el asterisco); ese efecto es *inverso*, pues el coeficiente calculado es negativo; y la *magnitud* de ese efecto es `r round(reg2$coefficients[2],3)`, lo que indica cuanto varía *apropiaciondolar* en promedio cuando *pctopo* se incremente en una unidad, controlando por las demás variables.
+-   *consejocomunal* tiene *efecto significativo* al **0.001** (indicado por los asteriscos); ese efecto es *directo*, pues el coeficiente calculado es positivo; y la *magnitud* de ese efecto es `r round(reg2$coefficients[3],3)`, lo que indica cuanto varía *apropiaciondolar* en promedio cuando *consejocomunal* es **1** y no **0**, también controlando por las demás variables.
+
+Nótese la lectura del efecto cuando la variable independiente es categórica (o *factor*). Primero, nota que *R* indica el valor *1* con el nombre de la variable: eso indica que el valor **0** (cuando el consejo comunal de ese municipio NO fue visitado) es la *categoría de referencia*; es decir, el coeficiente nos indica cuanto se modifica el valor promedio de la dependiente cuando se pasa de 0 a 1. Si la variable independiente es politómica (no ordinal), aparecerá cada categoría menos la de referencia, y el efecto siempre se debe interpretar como el efecto de la variable mostrada versus la de referencia. Con esta información podemos proponer la Ecuación \@ref(eq:reg2)
+
+```{=tex}
+\begin{equation}
+apropiaciondolar = `r reg2$coefficients[1]` + `r reg2$coefficients[2]` \cdot pctopo + `r reg2$coefficients[3]` \cdot consejocomunal + `r reg2$coefficients[4]`\cdot poblacioncienmil + \epsilon  (\#eq:reg2)
+\end{equation}
+```
+En ambos modelos, el $\epsilon$ no tiene coeficiente, representamos su variación usando el error típico de los residuos o *residual standard error* (RSE). Nótese que éste ha variado de un modelo ha otro, ahora tenemos un RSE menor. Aquí vale la pena preguntarse si esta disminución del error es significativa. Los resultados los vemos en la Tabla \@ref(tab:anova12).
+
+```{r anova12, warning=FALSE, message=FALSE, echo=TRUE,results='asis'}
+library(stargazer)
+library(magrittr)
+library(knitr)
+tanova=anova(reg1,reg2)
+# modelsummary(tanova,)
+kable(tanova,
+      caption = "Tabla ANOVA para comparar modelos")%>%kableExtra::kable_styling(full_width = FALSE)
+```
+
+<br></br>
+
+La comparación de modelos usando la tabla de análisis de varianza (anova) propone como hipótesis nula que los modelos no difieren (no se ha reducido el error al pasar de un modelo a otro). Como la comparación es *significativa* (vea el **Pr(\>F)**), rechazamos igualdad de modelos: el modelo 2 sí reduce el error al incluir una variable más. Podemos ver la comparación de ambos en la Tabla \@ref(tab:prettyRegs).
+
+```{r prettyRegs, warning=FALSE, message=FALSE, echo=TRUE,results='asis'}
+
+models=list('apropiacion (I)'=reg1,'apropiacion (II)'=reg2)
+modelsummary(models, title = "Resultados de todos los modelos",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+### Sobre el efecto de los regresores
+
+En la sesión 1 del curso, hicimos regresiones analizando el desempeño de alumnos en diversos cursos. En ese caso, dado que las variables usaban las mismas medidas, también se puede comparar el efecto entre ellas, es decir, cuál tiene más o menos efecto en la variable dependiente.
+
+En el caso actual, no hemos hecho ello, pues las variables son de diverso tipo. Así, si añadimos la variable **uribista** al último modelo (Tabla \@ref(tab:prettyReg2)), obtenemos la regresión de la Tabla \@ref(tab:reg3a).
+
+```{r reg3a}
+# modelo 1 mas una nueva independiente
+modelo3a=formula(apropiaciondolar~pctopo+consejocomunal+uribista+poblacioncienmil)
+
+reg3a=lm(modelo3a,data=pavi)
+model3a=list('apropiacion (III)'=reg3a)
+modelsummary(model3a, title = "Regresion: modelo 3",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+------------------------------------------------------------------------
+
+Del resultado de la Tabla \@ref(tab:reg3a) NO podemos directamente decir que consejo comunal tiene más efecto que los demás. Pero, para ellos debemos estandarizar los datos y volver a correr la regresión. Veamos la Tabla \@ref(tab:reg3b).
+
+```{r reg3b}
+modelo3b=formula(scale(apropiaciondolar)~scale(pctopo)+scale(as.numeric(consejocomunal))+scale(as.numeric(uribista))+scale(poblacioncienmil))
+
+reg3b=lm(modelo3b,data=pavi)
+
+model3b=list('apropiacion (III)'=reg3b)
+modelsummary(model3b, title = "Regresion: modelo 3 con \ncoeficientes estandarizados",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+De los resultados de la Tabla \@ref(tab:reg3b) se despeja que la variable de control (poblacion por cien mil) es la que tiene más efecto, y que de ahí le sigue consejo comunal, algo que no era evidente en la Tabla \@ref(tab:reg3a). Esto nos indica cuantas desviaciones estándar varía la variable dependiente (*apropiacion dolar*) cuando la dependiente varía en una (1) desviación estándar [^2]. Nota además que hemos tenido que estandarizar variables categóricas, lo cuál NO es posible. Ello no debe preocupar pues esta etapa es sólo para comparar tamaño de efecto entre variables.
+
+[^2]: Recuerda que el signo del coeficiente no importa para determinar el tamaño del efecto comparativo, importan su valor absoluto
+
+Podemos simplificar los pasos si utilizamos funciones del paquete **lm.beta**. La función que lleva el mismo nombre nos da el resultado rápidamente, como se ve en la Tabla \@ref(tab:lmbetareg3).
+
+```{r lmbetareg3}
+library(lm.beta)
+
+
+model3c=list('apropiacion (III)'=lm.beta(reg3a))
+modelsummary(model3c, title = "Regresion: modelo 3 con \ncoeficientes estandarizados usando lm.beta()",
+             stars = TRUE,
+             output = "kableExtra")
+
+```
+
+Puedes complementar esta información revisando esta nota en Wikipedia [-@wikipedia2022].
+
+<a id='diag'></a>
+
+# Diagnósticos de la Regresión
+
+Con el apoyo de las computadoras y el software estadístico es relativamente facil calcular una regresión. Sin embargo, hay que analizar los resultados obtenidos para poder rener una mejor conclusión. Revisemos el resultado de la segunda regresion en las siguientes sub secciones.
+
+## Linealidad
+
+Se asume relación lineal entre la variable dependiente (Y) y las independientes y Xs. Para ello analizamos la relación entre los residuos y los valores que predice  el modelo de regresión. Ver Figura \@ref(fig:linealidad).
+
+
+```{r linealidad,fig.cap="Evaluando Linealidad"}
+# linea roja debe tender a horizontal
+plot(reg2, 1)
+```
+
+La falta de linearidad provocaría que el modelo no sirva para explicar las mismas variables con datos diferentes en otrs estudios.
+
+## Homocedasticidad
+
+Se asume que la dispersión de los errores de la estimación ($\hat{apropiaciondolar}$) mantiene una variación homogenea. Si analizamos las raices de los errores estandarizados versus los valores estimados, la distancia de los puntos a la linea de referencia debe ser similar. Ver Figura \@ref(fig:homocedas).
+
+```{r homocedas, fig.cap="Evaluando Homocedasticidad"}
+# linea roja debe tender a horizontal
+plot(reg2, 3)
+```
+
+También podemos utilizar el test de Breusch-Pagan, como se ve en la Tabla \@ref(tab:bptest).
+
+```{r bptest}
+library(lmtest)
+library(kableExtra)
+# null: modelo homocedastico
+resBP=bptest(reg2)
+data.frame(list('BP'=resBP$statistic,
+             'df'=resBP$parameter,
+             "p-value"=resBP$p.value))%>%
+    kable(caption = resBP$method)%>%kable_styling(full_width = F)
+```
+
+Es estadístico de BP sale `r bptest(reg2)$statistic` con un p-valor de `r bptest(reg2)$p.value`; de ahí que se rechaza que el modelo muestre homocedasticidad.
+
+La presencia de heterocedasticidad afecta el cálculo de los p-valores, lo que afectará la validez de todo el modelo.
+
+## Normalidad de los residuos
+
+Los residuos, la diferencia entre *apropiaciondolar* y $\hat{apropiaciondolar}$, deben distribuirse de manera normal. Un **qq-plot** nos permite revelar si hay normalidad. Ver Figura \@ref(fig:normalidadRes).
+
+```{r normalidadRes, fig.cap="Evaluando Normalidad de residuos"}
+# puntos cerca a la diagonal?
+plot(reg2, 2)
+```
+
+Otra opción, es  aplicar el test de Shapiro a los residuos, como se ve en la Tabla \@ref(tab:shapiwtest).
+
+```{r shapiwtest}
+#NULL: Datos se distribuyen de manera normal
+resSW=shapiro.test(reg2$residuals)
+data.frame(list('SW'=resSW$statistic,
+             "p-value"=resSW$p.value))%>%
+    kable(caption = resSW$method)%>%kable_styling(full_width = F)
+
+```
+La falta de normalidad limita la capacidad de hacer inferencias a partir de lo encontrado.
+
+
+## No multicolinelidad
+
+Si los predictores tienen una correlación muy alta entre sí, hay multicolinealidad. Ver Tabla \@ref(tab:vif).
+
+```{r vif, message=FALSE}
+
+library(DescTools)
+# > 5 es problematico
+VIF(reg2) %>%kable(col.names = "VIF",caption ="Evaluando Multicolinealidad usando VIF (Variance Inflation Factors)" )%>%kable_styling(full_width = F)
+```
+
+La presencia de la multicolinealidad no perjudica tanto el calculo de ($\hat{apropiaciondolar}$), pero evita calcular bien el efecto de cada regresor. 
+
+## Valores influyentes
+
+Hay casos particulares, que tienen la capacidad de trastocar lo que el modelo representa. A veces detectándolos y suprimiéndolos, podemos ver un mejor modelo. La Figura \@ref(fig:influs) muestra la posible existencia de los valores influyentes.
+
+```{r influs, fig.cap="Existencia de Valores Influyentes"}
+plot(reg2, 5)
+```
+
+Si queremos ver más de cerca los posible casos influyentes, le prestamos atencion al indice de Cook y a los valores predecidos (los *hat* values) de la Tabla \@ref(tab:influ)
+
+```{r influ}
+checkReg2=as.data.frame(influence.measures(reg2)$is.inf)
+checkReg2[checkReg2$cook.d & checkReg2$hat,c('cook.d','hat')]%>%kable(caption = "Valores Influyentes criticos")%>%kable_styling(full_width = F)
+```
+
+
+Si alguna fila aparece en el resultado, ese caso está afectando los cálculos de la regresión (sin él habría otro resultado). 
+
+------------------------------------------------------------------------
+
+# Bibliografía {.unnumbered}
+
+::: {#refs}
+:::
+
+<br></br> <br></br> [al INICIO](#beginning) <br></br> <br></br>
