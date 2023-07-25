@@ -78,21 +78,22 @@ hsb$SES = ordered(hsb$SES,
 # Gráfica de correlación: (2 dimensiones)
 library(ggplot2)
 base = ggplot(data = hsb, aes(x = WRTG, y = MATH))
-base + geom_point()
-# Hay aparente relación:
+base + geom_point() # Hay aparente relación:
 ```
 
 ###  Índices de correlación:
 ```{r eval=FALSE}
-# Asimétricas, correlacionadas pero ninguna es V.D. o V.I:
+# despues de la virgulilla: asimétricas, correlacionadas pero ninguna es V.D. o V.I:
 f1 = formula( ~ MATH + WRTG) 
 
-# camino parametrico:
+# camino parametrico: 
+# (a través de ciertas pruebas, se asume correlacion lineal, es decir, 
+# las variables presentan disitribución normal)
 pearsonf1 = cor.test(f1, data = hsb)[c('estimate', 'p.value')]
 pearsonf1
 # el coeficiente de Pearson 0.6326664 (con p-value= 0).
 
-# camino no parametrico
+# camino no parametrico: (Calcula de la corrleacion en general) 
 spearmanf1 = cor.test(f1, data = hsb, 
                       method = 'spearman')[c('estimate', 'p.value')]
 spearmanf1
@@ -101,12 +102,13 @@ spearmanf1
 
 ### 2. V. independiente: SCI (desempeño en ciencias)
 
-Como es otra variable númerica, no podemos calcular la correlacion de 3 variables, pero sí se puede ver visualmente (Figura 10).
+Como es otra variable (númerica), no podemos calcular la correlacion de 3 variables (No hay pearson o spearman, solo funciona con 2 variables), pero sí se puede ver visualmente (Figura 10).
 
 - Nota: *no se ejecutarán los chunks, solo se muestra el código con esta V.I*:
 ```{r, eval=FALSE}
 # Gráfica de Correlación utilizando el código de la primera gráfica:
 base + geom_point(aes(color = SCI))
+# Visualmente hay relación, pero no tenemos un coeficiente para medirlo:
 ```
 
 ###  Índices de correlación:
@@ -126,19 +128,30 @@ spearmanf2
 ```
 
 
-### 3. V. independiente: SEX
+### 3. V. independiente: SEX (Categorica, dicotomica)
 
+- ¿Influencia del Sex en MATH? (Diferencias de grupos[compararar ])
+
+#### Boxplot con notch (sugiere igualdad de medianas si éstos se intersectan):  
 ```{r}
+# Gráfica:
 base = ggplot(data = hsb, aes(x = SEX, y = MATH))
 base + geom_boxplot(notch = T) +  geom_jitter(color = "black",
                                               size = 0.4,
                                               alpha = 0.9)
+# Parece no haber diferencia sustantiva entre hombres y mujeres en 
+# cuanto a su desempeño en MATH:
 ```
 
+#### Otra mejor opción: Barras de error (si las lineas se instersectan, las medias podrian ser iguales): 
 ```{r}
 library(ggpubr)
 ggerrorplot(data = hsb, x = "SEX", y = "MATH")
 ```
+
+#### ¿Hay o no igualdad de distribuciones en SEX? 
+
+- Depende si las variables se distribuyen o no de manera normal
 
 ```{r}
 ggplot(hsb, aes(x = MATH)) +
@@ -149,61 +162,74 @@ ggplot(hsb, aes(x = MATH)) +
                             sd = sd(hsb$MATH, na.rm = TRUE))) +
   facet_grid( ~ SEX) +
   coord_flip()
+# Los histogramas de la data real tienen encima la curva normal que idealmente tendría esa data. La lejanía entre ellos, sugeriría no normalidad.
+# Female distribución multimodal (puede afectar la diferencia de grupos)
 ```
 
+- Gráfica qqplot para explorar la presencia/ausencia de normalidad:
 ```{r}
-# se sugiere normalidad si los puntos no se alejan de la diagonal.
+# Se sugiere normalidad si los puntos no se alejan de la diagonal.
 ggqqplot(data = hsb, x = "MATH") + facet_grid(. ~ SEX)
 ```
+
+- Como no es facil discenir visualmente la normalidad, debemos calcular algun coeficiente como el Shapiro-Wilk:
 
 ```{r}
 library(knitr)
 library(kableExtra)
-h3 = formula(MATH ~ SEX)
 
-# función
+f3 = formula(MATH ~ SEX)
 
-shapInfo = function(x) {
-  y = shapiro.test(x)
-  
-  c(y$statistic, y$p.value)
-}
-
-tablag = aggregate(data = hsb,
-                   h3,
-                   FUN = shapInfo)
+tablag = aggregate(f3,
+                   hsb,
+                   FUN = function(x) {y <- shapiro.test(x);
+                   c(y$statistic, y$p.value)})
 
 # para que se vea mejor:
 
-shapiroTable = tablag[, 1] # columna 1
-WandPval = as.data.frame(tablag[, 2]) # columnas 2 y 3
-shapiroTable = cbind(shapiroTable, WandPval) # todo junto
-names(shapiroTable)[c(1, 3)] = c("SEX", "Pval") # cambia nombre de 1 y 2da columna
+shapiroTest = as.data.frame(tablag[, 2])
+names(shapiroTest) = c("W", "Prob")
 
 
-kable(shapiroTable)  |> 
-  kable_styling()
+kable(cbind(tablag[1], shapiroTest)) |> 
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = F,
+                position = "left")
+# Tstudent: se utiliza cuando hay normalidad 
+# Prob: es el pvalue y ambas son significativas (menores a 0.05) para Shapiro (parametrico)
+# En suma, no hay normalidad:
+
 ```
 
+- Se debe realizar una prueba no parametrica para advertir la diferencia de valores medios: usar la prueba Mann-Whitney en vez de la prueba t para testaer la relación entre ambas.
 ```{r}
-wilcoxh3 = wilcox.test(h3, data = hsb)['p.value']
-wilcoxh3
+# Prueba t:
+#tf3=t.test(f3,data=hsb)[c('estimate','p.value')]
+#tf3
+
+# Prueba no paramétrica:
+wilcoxf3=wilcox.test(f3,data=hsb)['p.value']
+# No se rechazaría la igualdad de valores medios 
+# (Mann-Whitney con p valor = 0.3085543).
+wilcoxf3 
 ```
+
 
 ```{r}
 base = ggplot(data = hsb, aes(x = WRTG, y = MATH))
 base + geom_point(aes(color = SEX))
 ```
-
+  - Añadimos SCI:
 ```{r}
 base + geom_point(aes(size = SCI, color = SEX)) 
 ```
-
-```{r}
+  - Añadimos SCI (Otro modo):
+```{r, eval=FALSE}
 base + geom_point(aes(color = SCI)) + facet_grid( ~ SEX)
 ```
 
-```{r}
+  - En 3 dimensiones:
+```{r, fig.cap="Figure 1: Figura 10: 'SCI', 'WRTG', 'MATH'"}
 paleta <- c("coral1", "cyan")
 colors <- paleta[as.numeric(hsb$SEX)]
 library(scatterplot3d)
