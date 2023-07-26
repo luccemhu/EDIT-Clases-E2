@@ -1,6 +1,6 @@
 ---
-title: "Regresión Lineal Multivariada (I)"
-subtitle: 'Repaso 1 - Introducción'
+title: "**<b style = 'color : #E34B2A;'>Regresión Lineal Multivariada (I)</b>**"
+subtitle: ''
 date: "2023-07-24"
 author: "Gianfranco Romero & Joel Hu | \n **[@GianfrancoRomero](https://github.com/GianfrancoRomero)** \n a20196091@pucp.edu.pe & \n **[@luccemhu](https://github.com/luccemhu)** \n a20196510@pucp.edu.pe"
 output:
@@ -17,10 +17,14 @@ output:
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
 
+<a id='beginning'></a>
+
 I. De Correlación a regresión
 ============================================================
 
 - Utilizaremos la técnica de la regresión al ir más allá de la correlación (Pearson, Spearman, etc.) o las diferencias de valores centrales (t test, kruska wallis, etc.).
+
+## Preparación de los datos
 
 ```{r}
 library(rio) # Importamos la data:
@@ -32,9 +36,9 @@ hsb = import("https://github.com/luccemhu/EDIT-Clases-E2/raw/main/SESI%C3%93N%20
 # o el manual metodológico, etc. (Indicarlo en el trabajo).
 ```
 
-## Preparación de los datos
+- Formateamos:
 ```{r}
-# Formateamos:
+
 categoricals = c("SEX", "RACE", "SES", "SCTYP", "HSP", "CAR")
 
 hsb[, categoricals] = lapply(hsb[, categoricals], as.factor) # A factor
@@ -106,7 +110,7 @@ Como es otra variable (númerica), no podemos calcular la correlacion de 3 varia
 
 - Nota: *no se ejecutarán los chunks, solo se muestra el código con esta V.I*:
 ```{r, eval=FALSE}
-# Gráfica de Correlación utilizando el código de la primera gráfica:
+# Gráfica de Correlación utilizando el código (`base`) de la primera gráfica:
 base + geom_point(aes(color = SCI))
 # Visualmente hay relación, pero no tenemos un coeficiente para medirlo:
 ```
@@ -117,14 +121,14 @@ f2 = formula( ~ MATH + SCI)
 
 # camino parametrico
 pearsonf2 = cor.test(f2, data = hsb)[c('estimate', 'p.value')]
-# El coeficiente de Pearson (0.6495261, p-value= 0)
+#pearsonf2 # El coeficiente de Pearson (0.6495261, p-value= 0)
 
 # camino no parametrico
 spearmanf2 = cor.test(f2, data = hsb, method = 'spearman')[c('estimate', 'p.value')]
-# El coeficiente de Spearman (0.6551515,p-value= 0)
+#spearmanf2 # El coeficiente de Spearman (0.6551515,p-value= 0)
 
-pearsonf2
-spearmanf2
+
+
 ```
 
 
@@ -135,12 +139,12 @@ spearmanf2
 #### Boxplot con notch (sugiere igualdad de medianas si éstos se intersectan):  
 ```{r}
 # Gráfica:
+# Parece no haber diferencia sustantiva entre hombres y mujeres en 
+# cuanto a su desempeño en MATH:
 base = ggplot(data = hsb, aes(x = SEX, y = MATH))
 base + geom_boxplot(notch = T) +  geom_jitter(color = "black",
                                               size = 0.4,
                                               alpha = 0.9)
-# Parece no haber diferencia sustantiva entre hombres y mujeres en 
-# cuanto a su desempeño en MATH:
 ```
 
 #### Otra mejor opción: Barras de error (si las lineas se instersectan, las medias podrian ser iguales): 
@@ -154,6 +158,10 @@ ggerrorplot(data = hsb, x = "SEX", y = "MATH")
 - Depende si las variables se distribuyen o no de manera normal
 
 ```{r}
+# Los histogramas de la data real tienen encima la curva normal que idealmente
+# tendría esa data. La lejanía entre ellos, sugeriría no normalidad.
+# Female distribución multimodal (puede afectar la diferencia de grupos)
+
 ggplot(hsb, aes(x = MATH)) +
   geom_histogram(aes(y = ..density..), bins = 20, fill = 'green') +
   stat_function(fun = dnorm,
@@ -162,17 +170,15 @@ ggplot(hsb, aes(x = MATH)) +
                             sd = sd(hsb$MATH, na.rm = TRUE))) +
   facet_grid( ~ SEX) +
   coord_flip()
-# Los histogramas de la data real tienen encima la curva normal que idealmente tendría esa data. La lejanía entre ellos, sugeriría no normalidad.
-# Female distribución multimodal (puede afectar la diferencia de grupos)
 ```
 
-- Gráfica qqplot para explorar la presencia/ausencia de normalidad:
+#### Gráfica qqplot para explorar la presencia/ausencia de normalidad:
 ```{r}
 # Se sugiere normalidad si los puntos no se alejan de la diagonal.
 ggqqplot(data = hsb, x = "MATH") + facet_grid(. ~ SEX)
 ```
 
-- Como no es facil discenir visualmente la normalidad, debemos calcular algun coeficiente como el Shapiro-Wilk:
+#### Como no es facil discenir visualmente la normalidad, debemos calcular algun coeficiente como el Shapiro-Wilk:
 
 ```{r}
 library(knitr)
@@ -184,51 +190,51 @@ tablag = aggregate(f3,
                    hsb,
                    FUN = function(x) {y <- shapiro.test(x);
                    c(y$statistic, y$p.value)})
+# Nota:
+# Tstudent: se utiliza cuando hay normalidad 
+# Prob: es el pvalue y ambas son significativas (menores a 0.05) 
+# para Shapiro (parametrico). En suma, no hay normalidad:
 
 # para que se vea mejor:
-
 shapiroTest = as.data.frame(tablag[, 2])
 names(shapiroTest) = c("W", "Prob")
-
 
 kable(cbind(tablag[1], shapiroTest)) |> 
   kable_styling(bootstrap_options = c("striped", "hover"),
                 full_width = F,
                 position = "left")
-# Tstudent: se utiliza cuando hay normalidad 
-# Prob: es el pvalue y ambas son significativas (menores a 0.05) para Shapiro (parametrico)
-# En suma, no hay normalidad:
-
 ```
 
-- Se debe realizar una prueba no parametrica para advertir la diferencia de valores medios: usar la prueba Mann-Whitney en vez de la prueba t para testaer la relación entre ambas.
+#### Se debe realizar una prueba no parametrica para advertir la diferencia de valores medios: usar la prueba Mann-Whitney en vez de la prueba t para testaer la relación entre ambas.
 ```{r}
 # Prueba t:
 #tf3=t.test(f3,data=hsb)[c('estimate','p.value')]
 #tf3
 
-# Prueba no paramétrica:
+# Corresponde realizar la prueba no paramétrica:
 wilcoxf3=wilcox.test(f3,data=hsb)['p.value']
 # No se rechazaría la igualdad de valores medios 
 # (Mann-Whitney con p valor = 0.3085543).
-wilcoxf3 
+#wilcoxf3 
 ```
 
-
+#### Gráfica de correlación representando al Sex entre WRTG y MATH:
 ```{r}
 base = ggplot(data = hsb, aes(x = WRTG, y = MATH))
 base + geom_point(aes(color = SEX))
 ```
-  - Añadimos SCI:
+
+#### Si añadimos SCI:
 ```{r}
 base + geom_point(aes(size = SCI, color = SEX)) 
 ```
-  - Añadimos SCI (Otro modo):
+
+#### Añadimos SCI (Otro modo):
 ```{r, eval=FALSE}
 base + geom_point(aes(color = SCI)) + facet_grid( ~ SEX)
 ```
 
-  - En 3 dimensiones:
+#### En 3 dimensiones:
 ```{r, fig.cap="Figure 1: Figura 10: 'SCI', 'WRTG', 'MATH'"}
 paleta <- c("coral1", "cyan")
 colors <- paleta[as.numeric(hsb$SEX)]
@@ -237,48 +243,83 @@ library(scatterplot3d)
 scatterplot3d(hsb[, c('SCI', 'WRTG', 'MATH')], color = colors)
 ```
 
+- En suma, los hombres y las mujeres están distribuidos por todo el gráfico, es decir, no hay diferencias aun en dimensiones mayores a 2. Pero no sabemos cuánto afecta cada VI a la VD. Por tanto, necesitamos la regresión...
 
-
-II. Regresión Lineal
+II. Regresión Lineal...
 ============================================================
 
+- Ténica en el que hay que definir una V.D. y una o más V.I. (Estas pueden ser predictores, pero por defecto son explicativos: VI explicaría a la VD: representado a traves de un modelo (ecuación)
+
+- Informa cuánto una V.I. explica la variación de una V.D. Por tanto, es una técnica para probar hipótesis direccionales o asimétricas (las correlaciones tienen hipótesis simétricas)
+
+Establezcamos los 3 modelos:
 ```{r}
 modelo1 = formula(MATH ~ WRTG)
 modelo2 = formula(MATH ~ WRTG + SCI)
 modelo3 = formula(MATH ~ WRTG + SCI + SEX)
 ```
 
-```{r}
-# H1: el nivel de desempeño en escritura afecta el desempeño en matemáticas:
-summary(lm(modelo1, data = hsb))
-```
-
+## H1: el nivel de desempeño en escritura afecta el desempeño en matemáticas:
 ```{r}
 library(stargazer)
 reg1 = lm(modelo1, data = hsb)
-summary(reg1)
+#summary(reg1)
 stargazer(reg1, type = "text", intercept.bottom = FALSE)
 ```
+Interpretación: 
 
+WRTG <- 0.612*** <- Estimate       
+         (0.031) <- Std. Error
 
-```{r}
+1. WRTG es significativo (***) y explica a MATH. 
+
+2. Efecto directo (coeficiente directo)
+
+3. La magnitud del efecto es 0.612: Si WRTG aumenta en una unidad, MATH aumentará en promedio 0.612. 
+
+### Recta sobre el gráfico de correlación produce una linea:
+```{r, eval=FALSE}
 ggplot(hsb, aes(x = WRTG, y = MATH)) +
   geom_point() +
-  geom_smooth(method = lm)
+  geom_smooth(method = lm) # Recta
 ```
 
+- Relacion de estas variables en una ecuación:
+
+Esa recta podemos representarla así:
+
+$$  MATH= `r reg1$coefficients[1]` + `r reg1$coefficients[2]` \cdot WRTG + \epsilon$$
+
+El Y verdadero es MATH, pero la regresión produce un $\hat{MATH}$ estimado, de ahi la presencia del $\epsilon$. Justamente el _R cuadrado ajustado_ (`r summary(reg1)$r.squared`) nos brinda un porcentaje (multiplicalo por 100) que da una pista de nuestra cercanía a una situación perfecta (cuando vale **1**).
+
+
+## H2: Añadimos SCI:
 
 ```{r}
 reg2 = lm(modelo2, data = hsb)
-summary(reg2)
 stargazer(reg2, type = "text", intercept.bottom = FALSE)
 ```
 
-```{r}
+### La gráfica produce un plano (no una linea)...
+
+pues la regresion presenta una formula cons 2 V.I. explicando la D.V.
+
+```{r eval=FALSE}
 G  <- scatterplot3d(hsb[, c('SCI', 'WRTG', 'MATH')])
 G$plane3d(reg2, draw_polygon = TRUE, draw_lines = FALSE)
 ```
 
+La ecuación del plano:
+
+$$  MATH= `r reg2$coefficients[1]` + `r reg2$coefficients[2]` \cdot WRTG + `r reg2$coefficients[3]` \cdot SCI + \epsilon$$
+
+En este caso el _R cuadrado ajustado_ (`r summary(reg2)$r.squared`) nos da una pista de nuestra lejanía a una situación perfecta.
+
+El coeficiente de WRTG ha variado en la fórmula ahora que está presente SCI debido a que en el primer caso, WRTG y $\epsilon$ buscaban representar la variabilidad en MATH, y ahora, en el segundo caso, viene SCI para mejorar esa explicación; así  el peso de la explicación se recalcula y el coeficiente de WRTG deja de explicar lo que le corresponde a SCI, y $\epsilon$ también le entrega _algo_ a SCI. 
+
+Como $\epsilon$ no tiene coeficiente, representamos su variación usando el error típico de los residuos o _residual standard error_ (RSE). Este ha variado de un modelo ha otro, ahora es un RSE menor. 
+
+### Para comprobar si esta disminución del error es significativa:
 ```{r}
 tanova = anova(reg1, reg2)
 tanova
@@ -288,24 +329,37 @@ stargazer(tanova,
           title = "Table de Análisis de Varianza")
 ```
 
+La comparación de modelos usando la tabla de análisis de varianza (anova) propone como hipótesis nula que los modelos no difieren (no se ha reducido el error al pasar de un modelo a otro). Como la comparación es significativa (vea el Pr(> F): menor a 0.05), rechazamos igualdad de modelos: el modelo 2 sí reduce el error al incluir una variable más.
+
+## H3: Añadiendo SEX
 ```{r}
 reg3 = lm(modelo3, data = hsb)
-summary(reg3)
+stargazer(reg3, type = "text", intercept.bottom = FALSE)
 ```
 
-```{r}
+### Gráfica (elementos visuales):
+
+- no se puede graficar 4 coordenadas
+```{r, eval=FALSE}
 colors <- paleta[as.numeric(hsb$SEX)]
 G  <- scatterplot3d(hsb[, c('SCI', 'WRTG', 'MATH')], color = colors)
 G$plane3d(reg2, draw_polygon = TRUE, draw_lines = FALSE)
 ```
 
+Nuestra nueva ecuación sería:
+
+$$  MATH= `r reg3$coefficients[1]` + `r reg3$coefficients[2]` \cdot WRTG + `r reg3$coefficients[3]` \cdot SCI + `r reg3$coefficients[4]` \cdot SEX + \epsilon$$
+
+Nuevamente podemos ver si añadir SEXO en este modelo representa una mejora al anterior:
+
+
+
+## Resumiendo las 3 regresiones:
 ```{r}
-stargazer(reg1, reg2, reg3, type = "text")
-stargazer(reg1,
-          reg2,
-          reg3,
-          type = "text",
-          title = "Modelos planteadas",
+#stargazer(reg1, reg2, reg3, type = "text") # Tabla básica
+
+stargazer(reg1, reg2, reg3, type = "text", # Tabla fachera
+          title = "Modelos planteados",
           digits = 2,
           single.row = F,
           no.space = F,
@@ -321,6 +375,7 @@ stargazer(reg1,
           notes.label = "Notas:")
 ```
 
+## Gráficamente las 3 regresiones:
 ```{r}
 library(sjPlot)
 plot_models(reg1,
@@ -330,7 +385,6 @@ plot_models(reg1,
             m.labels = c("Modelo 1", "Modelo 2", "Modelo 3"))
 ```
 
+- Ninguna de las variables (y sus intervalos de confianza) tocan el valor cero (que significa que la variable no tiene efecto en la dependiente).
 
-
-
-
+[Comienzo](#beginning)
