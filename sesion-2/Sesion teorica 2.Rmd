@@ -1,8 +1,8 @@
 ---
 title: "**<b style = 'color : #E34B2A;'>Diagnósticos de la regresión</b>**"
-subtitle: ''
+subtitle: 'Profesor: <a href="http://www.pucp.edu.pe/profesor/jose-manuel-magallanes/" target="_blank">Dr. José Manuel MAGALLANES REYES, Ph.D.</a>'
 date: "2023-07-25"
-author: "Gianfranco Romero & Joel Hu | \n **[@GianfrancoRomero](https://github.com/GianfrancoRomero)** \n a20196091@pucp.edu.pe & \n **[@luccemhu](https://github.com/luccemhu)** \n a20196510@pucp.edu.pe"
+author: "Editors: [Gianfranco Romero](https://github.com/GianfrancoRomero), \n a20196091@pucp.edu.pe & \n [Joel Hu](https://github.com/luccemhu), \n a20196510@pucp.edu.pe"
 output:
   rmdformats::downcute:
     downcute_theme: "chaos"
@@ -27,7 +27,7 @@ I. Construcción de un modelo
 ## Preparación de los datos
 
 ```{r}
-LinkData='https://github.com/luccemhu/EDIT-Clases-E2/raw/main/Sesion3-main/pavimentando%20-%20dataPavimentando.csv'
+LinkData='https://github.com/luccemhu/EDIT-Clases-E2/raw/main/sesion-2/pavimentando.csv'
 pcv=read.csv(LinkData) #Es necesario usar este código, pues el archivo está en formato csv
 ```
 
