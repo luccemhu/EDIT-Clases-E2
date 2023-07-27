@@ -177,11 +177,11 @@ modelsummary(modelslmpoi, title = "Regresiones OLS y Poisson",
              output = "kableExtra")
 ```
 
-Ahora que tenemos ambas regresiones en la Tabla \@ref(tab:rp1rl2), vemos que el modelo Poisson le devuelve efecto a la independiente. Nótese que la Poisson está modelando los conteos, teniendo en cuenta la exposición (*exposure*), añadida usando *offset*. Esto no siempre es necesario, pero en este caso si lo era pues necesitamos representar controlar la *exposure* de manera explícita (la población) [^1].
+Ahora que tenemos ambas regresiones en la Tabla \@ref(tab:rp1rl2), vemos que 
 
-[^1]: No sería diferente si tuvieramos *hijos por hogar*, *postulaciones por político*.
+el modelo Poisson le devuelve efecto a la independiente. Nótese que la Poisson está modelando los conteos, teniendo en cuenta la exposición (*exposure*), añadida usando *offset*. Esto no siempre es necesario, pero en este caso si lo era pues necesitamos representar controlar la *exposure* de manera explícita (la población) (No sería diferente si tuvieramos *hijos por hogar*, *postulaciones por político*).
 
-La Tabla \@ref(tab:rp1rl2) muestra dos modelos que no se pueden comparar fácilmente, pero podemos verlo de manera gráfica en la Figura \@ref(fig:compare_olspoi).
+La Tabla muestra dos modelos que no se pueden comparar fácilmente, pero podemos verlo de manera gráfica:
 
 ```{r compare_olspoi,fig.cap="Comparando modelos via valores calculados"}
 par(mfrow = c(1, 2))  # divide screen 1 row 2 columns
@@ -191,37 +191,37 @@ plot(salud$segu, fitted(rl2),
      ylim = c(0, 365000));title(main = "Original versus OLS \ncontrolando población")
 ```
 
-La Figura \@ref(fig:compare_olspoi) muestra que los valores obtenidos por la regresiones (*fitted values*) se relacionan muy bien con los valores originales. Ambas servirían para predecir; pero sólo la Poisson le da significancia al predictor de interés.
+La Figura muestra que los valores obtenidos por la regresiones (*fitted values*) se relacionan muy bien con los valores originales. Ambas servirían para predecir; pero sólo la Poisson le da significancia al predictor de interés.
 
 ## Interpretación
 
-Ahora que sabemos cuándo usar una regresión Poisson, alteremos la hipótesis anterior así:
+Ahoram alteremos la H1 así:
 
-> A nivel distrital, la cantidad de personas con algun seguro de salud está afectada por el nivel analfabetismo y por la presencia de trabajadores independientes.
+> H2: A nivel distrital, **la cantidad de personas `pob`** con algun seguro de salud `segu` está afectada por el nivel analfabetismo `analf15` y por la presencia de trabajadores independientes `inde`.
 
 ```{r rp1rp2,warning=FALSE, message=FALSE, results='asis'}
 
-h2=formula(segu~analf15 + inde)
-    
-rp2=glm(h2, data = salud, offset = log(pob),
-        family = poisson(link = "log"))
+h2 = formula(segu ~ analf15 + inde)
 
+rp2 = glm(h2, data = salud,
+          offset = log(pob),
+          family = poisson(link = "log"))
 
-modelsPois=list('POISSON asegurados (I)' = rp1,
-                'POISSON asegurados (II)' = rp2)
+modelsPois = list('POISSON asegurados (I)' = rp1, 
+                  'POISSON asegurados (II)' = rp2)
 modelsummary(modelsPois, 
              title = "Regresiones Poisson anidadas",
              stars = TRUE,
              output = "kableExtra")
 ```
 
-La interpretación de la Tabla \@ref(tab:rp1rp2) NO es tan directa como lo era en la regresión lineal. Sin hacer ningun cálculo, aquí podemos ver:
+La interpretación NO es tan directa como lo era en la regresión lineal. Sin hacer ningun cálculo, aquí podemos ver:
 
 -   que para el segundo modelo ambos predictores son significativos;
 -   que a mayor analfabetismo, mayor cantidad de asegurados;
 -   que a mayor cantidad de trabajadores independientes, menor cantidad de asegurados.
 
-Sin embargo, no es tan sencilla la interpretación de los coeficientes de la la Tabla \@ref(tab:rp1rp2). Para tener una mejor idea, debemos hacer cálculos.
+Sin embargo, no es tan sencilla la interpretación de los coeficientes. Para tener una mejor idea, debemos hacer cálculos.
 
 Tengamos primero en cuenta lo que la regresión Poisson ha calculado usando la Ecuación \@ref(eq:poi):
 
@@ -248,7 +248,15 @@ modelsummary(modelsPois,
 #cbind(exp(coef(rp2)),exp(confint(rp2)))
 ```
 
-La Tabla \@ref(tab:exp-rp2) tiene los coeficientes exponenciados, así mismo, muestra los intervalos de confianza (exponenciados) en vez de los errores típicos. Nota que mientras en la regresión lineal no deseábamos que nuestro coeficiente esté cerca al cero, es decir, que su intervalo de confianza no incluya al *cero*, aquí no deseamos que el intervalo de confianza incluya al *uno*. Una vez exponenciado, podemos interpretar los coeficientes de manera más sencilla. Así, para el modelo II se ve que por cada unidad que aumente el analfabetismo la cantidad esperada de asegurados se multiplica por 1.016, es decir, aumentaría en un 1.6% (100x\|1-1.016\|). De igual manera, por cada unidad que aumente los trabajadores independientes, la cantidad esperada de asegurados se multiplica por 0.99, es decir, disminuiría en 1% (100x\|1-0.99\|) [@choueiry_interpret_2022]. Nótese que esta regresión propone un efecto multiplicativo sobre el valor medio de la respuesta (la regresión OLS o Gaussiana propone un efecto aditivo).
+- Ahora, ambas regresiones tienen los coeficientes exponenciados. En la Poisson será más fácil la interpretación:
+
+- También, muestra los intervalos de confianza (exponenciados) en vez de los errores típicos. Nota que mientras en la regresión lineal no deseábamos que nuestro coeficiente esté cerca al cero, es decir, que su intervalo de confianza no incluya al *cero*, aquí no deseamos que el intervalo de confianza incluya al *uno*. 
+
+- Una vez exponenciado, podemos interpretar los coeficientes de manera más sencilla. Así, para el modelo II se ve que 
+
+- por cada unidad que aumente el analfabetismo la cantidad esperada de asegurados se multiplica por 1.016, es decir, aumentaría en un 1.6% (100x\|1-1.016\|). 
+
+- por cada unidad que aumente los trabajadores independientes, la cantidad esperada de asegurados se multiplica por 0.99, es decir, disminuiría en 1% (100x\|1-0.99\|) [@choueiry_interpret_2022]. Nótese que esta regresión propone un efecto multiplicativo sobre el valor medio de la respuesta (la regresión OLS o Gaussiana propone un efecto aditivo).
 
 ````{=html}
 <!--
@@ -280,7 +288,8 @@ Exp.summaryRobusto
 -->
 ````
 
-# Equidispersión
+Equidispersión
+============================================================
 
 Uno de los supuestos en la Regresión Poisson es que la **media** y la **varianza** sean iguales. De los estadigrafos de la Figura \@ref(fig:hisVD) se mostró que estos valores no están cercanos, de hecho la razón varianza - media es `r round(descris$var/descris$media,2)`. Aquí es clara la sobredispersión, pero en caso haya dudas podemos poner a prueba la *hipótesis de equidispersion* [@hilbe_statistical_2017]. Veamos la Tabla \@ref(tab:tabla-disper).
 
