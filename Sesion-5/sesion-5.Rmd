@@ -1,7 +1,7 @@
 ---
 title: "**<b style = 'color : #E34B2A;'>Modelando la Duración</b>**"
 subtitle: 'Profesor: <a href="http://www.pucp.edu.pe/profesor/jose-manuel-magallanes/" target="_blank">Dr. José Manuel MAGALLANES REYES, Ph.D.</a>'
-date: "2023-07-24"
+date: "2023-07-28"
 author: "Editors: [Gianfranco Romero](https://github.com/GianfrancoRomero), \n a20196091@pucp.edu.pe & \n [Joel Hu](https://github.com/luccemhu), \n a20196510@pucp.edu.pe"
 output:
   rmdformats::downcute:
@@ -20,192 +20,187 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 
 # Introducción
 
-Estos datos nos dan información sobre ex convictos y el tiempo que demoran en volver a la cárcel [@allison_survival_2010]:
+- Estos datos nos dan información sobre ex convictos y el tiempo que demoran en volver a la cárcel [Allison 2010]:
 
-```{r}
-knitr::include_url("https://docs.google.com/spreadsheets/d/e/2PACX-1vQSlGaMI8Q8qlXI0Bp3m7BQcEh8ZLzaP7RymVtRYkg3ah1sZVlCi6-HmeKCic1RjfuH3gL_wrbMms88/pubhtml")
-```
+```{r eval=TRUE}
+#knitr::include_url("https://docs.google.com/spreadsheets/d/e/2PACX-1vQSlGaMI8Q8qlXI0Bp3m7BQcEh8ZLzaP7RymVtRYkg3ah1sZVlCi6-HmeKCic1RjfuH3gL_wrbMms88/pubhtml") # Datos en tiempo real
 
-Veamos cómo los ha traido R:
-
-```{r, eval=TRUE}
-link="https://docs.google.com/spreadsheets/d/e/2PACX-1vQSlGaMI8Q8qlXI0Bp3m7BQcEh8ZLzaP7RymVtRYkg3ah1sZVlCi6-HmeKCic1RjfuH3gL_wrbMms88/pub?gid=1573532387&single=true&output=csv"
-carcel=read.csv(link, stringsAsFactors = T)
+# Veamos cómo los ha traido R:
+link = "https://github.com/luccemhu/EDIT-Clases-E2/raw/main/Sesion-5/carcel.csv"
+carcel = read.csv(link, stringsAsFactors = T)
 str(carcel)
 ```
 
-A partor de aquí, hagamos ajustes a los **tipos de datos** según la metadata:
+Ajustando los **tipos de datos** según la metadata:
 
 ```{r}
-carcel[,c(2,3,5,6,7,8)]=lapply(carcel[,c(2,3,5,6,7,8)], as.factor)
-carcel$nivelEduca=as.ordered(carcel$nivelEduca)
-str(carcel)
+carcel[, c(2, 3, 5, 6, 7, 8)] = lapply(carcel[, c(2, 3, 5, 6, 7, 8)], as.factor)
+carcel$nivelEduca = as.ordered(carcel$nivelEduca)
+#str(carcel)
 ```
 
-El propósito de este trabajo es entender qué factores afectan la reincidencia de los los presos dejados en libertad. Revisando la metadata, tenemos dos variables que pueden ser usadas como dependiente. Exploremos ambas:
 
--   **semanasLibre**
+### Qué factores afectan la reincidencia de los los presos dejados en libertad. 
+
+- Revisando la metadata, hay dos variables que pueden ser usadas como dependiente. Exploremos ambas:
+
+-   **`semanasLibre`**
 
 ```{r}
 summary(carcel$semanasLibre)
 ```
 
--   **fueArrestado**
+-   **`fueArrestado`**
 
 ```{r}
 table(carcel$fueArrestado)
 ```
 
-Con la data disponible podemos proponer estas hipotesis:
+Podemos proponer estas hipotesis:
 
-> H1: El tiempo que permanece en libertad un reo hasta que vuelve a la carcel está afectado si tuvo financiamiento,por su nivel educativo, y por sus encarcelamientos previos.
+> H1: El tiempo que permanece en libertad un reo hasta que vuelve a la carcel está afectado si tuvo financiamiento, por su nivel educativo, y por sus encarcelamientos previos.
 
 y...
 
-> H2: El que un reo vuelva a la carcel está afectado si tuvo financiamiento,por su nivel educativo, y por sus encarcelamientos previos.
+> H2: El que un reo vuelva a la carcel está afectado si tuvo financiamiento, por su nivel educativo, y por sus encarcelamientos previos.
 
-La \@ref(tab:h1h2) nos muestra el resultado de modelar la H1 con una regresión Gaussiana [@magallanes_estadistica-analisispoliticosesion2_2022-1], y la H2 con una regresión logística binaria [@magallanes_estadistica-analisispoliticosesion4_2022]:
+- El resultado de modelar la H1 con una regresión Gaussiana: 
+
+- la H2 con una regresión logística binaria:
 
 ```{r h1h2,warning=FALSE, message=FALSE, results='asis'}
 #
-h1=formula(semanasLibre~tuvoApoyoDinero+nivelEduca+vecesEnCarcel)
-h2=formula(fueArrestado~tuvoApoyoDinero+nivelEduca+vecesEnCarcel)
-
+h1 = formula(semanasLibre ~ tuvoApoyoDinero + nivelEduca + vecesEnCarcel)
+h2 = formula(fueArrestado ~ tuvoApoyoDinero + nivelEduca + vecesEnCarcel)
 #
-rGauss=lm(h1,data=carcel)
-rLogit=glm(h2,data=carcel, family = binomial)
-
+rGauss = lm(h1, data = carcel)
+rLogit = glm(h2, data = carcel, family = binomial)
 #
-models=list('Tiempo en Libertad (Gauss)'=rGauss, "Ser Arrestado (Logit)"=rLogit)
-
+models = list('Tiempo en Libertad (Gauss)' = rGauss, 
+              "Ser Arrestado (Logit)" = rLogit)
 #
 library(modelsummary)
 modelsummary(models,
              title = "Regresiones Gauss y Logit",
              stars = TRUE,
              output = "kableExtra")
-
 ```
 
-De la Tabla \@ref(tab:h1h2) vemos que para la Regresión Gaussiana:
+Para la H1: Regresión Gaussiana:
 
 -   El tener apoyo financiero aumenta el tiempo en libertad con una significancia de 0.1.
 -   El nivel educativo no tendría efecto en el tiempo en libertad (probabilidad de efecto cero es mayor al 0.1).
 -   El tener encarcelamientos previos disminuye el tiempo en libertad con una significancia de 0.001.
 
-Para el caso de los resultados con la Logit tenemos:
+Para el caso de los resultados con la Logit:
 
 -   El tener apoyo financiero disminuye el Log Odds Ratio de ser arrestado con una significancia de 0.05.
 -   El nivel educativo no tendría efecto en el Log Odds Ratio de ser arrestado (probabilidad de efecto cero es mayor al 0.1).
 -   El tener encarcelamientos previos aumenta el Log Odds Ratio de ser arrestado con una significancia de 0.01.
 
-Nota que enla Tabla \@ref(tab:h1h2) ambos casos la variable ordinal viene con unas letras L-Q, etc. Esto informa si el efecto de la ordinal es lineal, cuadrático, cúbico, etc.
+Nota que en la Tabla ambos casos la variable ordinal viene con unas letras L-Q, etc. Esto informa si el efecto de la ordinal es lineal, cuadrático, cúbico, etc.
 
-¿Qué problema no estamos advirtiendo?
+## ¿Qué problema no estamos advirtiendo?
 
-1.  Que la duración de la libertad está condicionada a ser arrestado, ambas son un todo. Algo dura hasta que algo sucede.
+1.  Que la duración de la *libertad está condicionada a ser arrestado*, ambas son un todo. **Algo dura hasta que algo sucede**.
 
-2.  Que el hecho de ser arrestado es un evento, NO una característica, y, lo que es más, el NO ser arrestado es algo que puede variar en el tiempo, sólo que la investigación acabó y el liberado aun seguía libre.
+2.  Que el hecho de **ser arrestado es un evento**, NO una característica, y, lo que es más, el **NO ser arrestado es algo que puede variar en el tiempo**, sólo que la investigación acabó y el liberado aun seguía libre.
 
-En situaciones que combinan duración y observación de eventos, debemos usar el *EHA* o **Análisis de Eventos Históricos** [@grace-martin_modeling_2010]. Esta técnica funciona de tal manera que puede lidiar con el hecho de *no darse* el evento, en este caso, no ser arrestado: esto representa un caso censurado.
+En situaciones que combinan duración y observación de eventos, debemos usar el *EHA* o **Análisis de Eventos Históricos** [Grace-Martin 2010]. Esta técnica funciona de tal manera que puede lidiar con el hecho de *no darse* el evento, en este caso, no ser arrestado: esto representa un caso censurado.
 
-# Analizando Eventos Históricos
-
-El primer paso para usar EHA, es indicarle a R que trate a la data de esa manera. Creemos una nueva columna *survival* en nuestra tabla actual.
+Analizando Eventos Históricos
+============================================================
+El primer paso para usar EHA, es indicarle a R que trate a la data de esa manera. Creemos una nueva columna *survival* en nuestra tabla actual. 
+  
+  - O sea, convertir las dos V. dependientes en una sola: 
+    - `semanasLibre` + `fueArrestado` = `survival`
 
 ```{r, eval=TRUE}
 library(survival)
 # note que necesito el factor como numérico
-carcel$survival=with(carcel,Surv(time = semanasLibre,event =  as.numeric(fueArrestado)))
+carcel$survival = with(carcel, Surv(time = semanasLibre, 
+                                    event =  as.numeric(fueArrestado)))
 # que es:
-
-library(magrittr) # needed for pipe %>% 
-carcel%>%
-    rmarkdown::paged_table()
+#carcel |> rmarkdown::paged_table()
 ```
 
-Como ves, la columna creada tiene valores con un **+**, lo que indica que están censurados.
+- la columna creada tiene valores con un **+**, lo que indica que están censurados.
 
 ## Análisis Kaplan-Meier (KM)
 
-KM es el procedimiento descriptivo básico que se utiliza para ver la dinámica de sobrevivencia [@goel_understanding_2010]. Así, veamos en la Figura \@ref(fig:Kmfig) nos muestra el comportamiento genérico de permanecer libre.
+**KM** es el procedimiento descriptivo básico que se utiliza para ver **la dinámica de sobrevivencia** [Goel, Khanna, and Kishore 2010]. La Figura nos muestra el comportamiento genérico de permanecer libre:
 
 ```{r Kmfig, eval=TRUE, fig.cap="Análisis Kaplan-Meier (simple)"}
 library(ggplot2)
 library(ggfortify)
 
-#aqui el generico
+# aqui el generico
 KM.generico = survfit(survival ~ 1, data = carcel)
 
-###graficando
-ejeX='SEMANAS\n curva cae cuando alguien es arrestado'
-ejeY='Probabilidad \n(PERMANECER LIBRE)'
-titulo="Curva de Sobrevivencia: permanecer libre"
-autoplot(KM.generico,xlab=ejeX,ylab=ejeY, main = titulo,conf.int = F)
+# graficando:
+ejeX = 'SEMANAS\n curva cae cuando alguien es arrestado'
+ejeY = 'Probabilidad \n(PERMANECER LIBRE)'
+titulo = "Curva de Sobrevivencia: permanecer libre"
+autoplot(KM.generico, xlab = ejeX, ylab = ejeY, main = titulo, conf.int = F)
 ```
 
-La Figura \@ref(fig:Kmfig) nos da una idea de cómo se comporta esta población; por ejemplo, la gráfica nos dice que si pasan 40 semanas, la probabilidad de seguir libre está cerca al 80%.
+La Figura nos da una idea de cómo se comporta esta población:
+
+- Por ej., la gráfica nos dice que si pasan 40 semanas, la probabilidad de seguir libre está cerca al 80%.
 
 El análisis KM es más interesante para ver una comparación:
 
 ```{r kmcurve, eval=TRUE, fig.cap="Análisis Kaplan-Meier (grupos)"}
-KM_H1=formula(survival ~ tuvoApoyoDinero)
-
+KM_H1 = formula(survival ~ tuvoApoyoDinero)
 KM.fondos = survfit(KM_H1, data = carcel)
-
-###
-ejeX='SEMANAS\n curva cae cuando alguien es arrestado'
-ejeY="Prob ('seguir libre')"
-titulo="Curva de Sobrevivencia: ¿Beneficia el apoyo financiero?"
-
-autoplot(KM.fondos,xlab=ejeX,ylab=ejeY, 
-         main = titulo,conf.int = F)  + 
-        labs(colour = "Apoyo Financiero?") + 
-         scale_color_discrete(labels = c("No", "Sí"))
+#
+ejeX = 'SEMANAS\n curva cae cuando alguien es arrestado'
+ejeY = "Prob ('seguir libre')"
+titulo = "Curva de Sobrevivencia: ¿Beneficia el apoyo financiero?"
+autoplot(KM.fondos, xlab = ejeX, ylab = ejeY,
+         main = titulo, conf.int = F)  + 
+  labs(colour = "Apoyo Financiero?") +
+  scale_color_discrete(labels = c("No", "Sí"))
 ```
 
 La posición de las curvas nos hace pensar que le cuesta más a los que no tuvieron fondos permanecer libres. Para una mayor confianza en tal hipótesis, podemos hacer la prueba de Mantel-Cox (LogRanK), obteniendo este nivel de significancia:
 
 ```{r, eval=TRUE}
-LogRank=survdiff(KM_H1, data = carcel)
-# ver p-valor
-LogRank$pvalue
-
+LogRank = survdiff(KM_H1, data = carcel)
+#LogRank$pvalue # P-valor: 0.05011612
 ```
 
-Siendo la H0 de KM: no hay diferencias entre grupos, con el p-valor obtenido la diferencia no es significativa al 0.05 (pero sí al 0.1). La Figura \@ref(fig:kmcurveConfInt) aclara por qué.
+La H0 de KM: no hay diferencias entre grupos. Con el p-valor obtenido la diferencia no es significativa al 0.05 (pero sí al 0.1). La sigueinte Figura aclara por qué:
 
 ```{r kmcurveConfInt, eval=TRUE, fig.cap="Curva de Sobrevivencia (grupos con intervalo de confianza)"}
-autoplot(KM.fondos,xlab=ejeX,ylab=ejeY, 
-         main = titulo,conf.int = T)+ 
-        labs(colour = "Apoyo Financiero?") + 
-         scale_color_discrete(labels = c("No", "Sí"))
+autoplot(KM.fondos, xlab = ejeX, ylab = ejeY, main = titulo, conf.int = T) + 
+  labs(colour = "Apoyo Financiero?") + 
+  scale_color_discrete(labels = c("No", "Sí"))
 ```
 
-De nuevo, como sólo hay dos variables, es difícil saber qué más interviene. De ahí que necesitamos un modelo que permita análisis multivariado.
+De nuevo, como sólo hay dos variables (`survival ~ tuvoApoyoDinero`), es difícil saber qué más interviene. De ahí que necesitamos un modelo que permita **análisis multivariado**.
 
 ## Regresión de Cox
 
-Como toda regresión, esta técnica permite utilizar regresores o predictores o covariados, pero no modela la duración sino el *riesgo de que el evento suceda* (ser re arrestado) [@abd_elhafeez_methods_2021]. Veamos la Tabla \@ref(tab:coxtable).
+- Como toda regresión, esta técnica permite utilizar regresores o predictores, o covariados.
+
+- Modela el ***riesgo de que el evento suceda*** (ser re arrestado), no la duración.
+
+Veamos la Tabla:
 
 ```{r coxtable, eval=TRUE}
-COX_H1= formula(survival~tuvoApoyoDinero+nivelEduca+vecesEnCarcel)
-
-#regression
-rcox1 <- coxph(COX_H1,data=carcel)
-modelcox=list('Riesgo - Re arrestado'=rcox1,'Riesgo- Re arrestado (exponenciado)'=rcox1)
+COX_H1 = formula(survival ~ tuvoApoyoDinero + nivelEduca + vecesEnCarcel)
+# Regression
+rcox1 <- coxph(COX_H1, data = carcel)
+modelcox = list('Riesgo - Re arrestado' = rcox1,
+                'Riesgo- Re arrestado (exponenciado)' = rcox1)
 
 #f <- function(x) format(x, digits = 4, scientific = FALSE)
 library(modelsummary)
 modelsummary(modelcox,
              #fmt=f,
-             exponentiate = c(F,T), 
-             statistic = 'conf.int',
-             title = "Regresión Cox",
-             stars = TRUE,
-             output = "kableExtra")
-
-
+             exponentiate = c(F, T), statistic = 'conf.int',
+             title = "Regresión Cox", stars = TRUE, output = "kableExtra")
 ```
 
 La Tabla \@ref(tab:coxtable) muestra los coeficientes originales y exponenciados (las razones de riesgo o *hazard ratios*) . Veamos cada uno:
@@ -213,60 +208,61 @@ La Tabla \@ref(tab:coxtable) muestra los coeficientes originales y exponenciados
 -   Se puede inferir que dar financiamiento disminuye el riesgo de ser re arrestado con una significancia del 0.05. La columna a la derecha (los *HRs*) nos da la magnitud promedio de ese riesgo como la distancia absoluta al uno (*1*); en este caso:
 
 ```{r}
-(apoyoDinero=abs(1-exp(coef(rcox1)[1])))
+(apoyoDinero = abs(1 - exp(coef(rcox1)[1])))
 ```
 
-De ahí que usando el hazard ratio, podemos sostener que el riesgo de volver a la cárcel para alguien con apoyo financiero es aproximadamente `r 100*round(apoyoDinero,4)` menor a la de los que no lo tienen.
+De ahí que usando el hazard ratio, podemos sostener que el riesgo de volver a la cárcel para alguien con apoyo financiero es aproximadamente 34 menor a la de los que no lo tienen.
 
 -   Se puede inferir que es muy poco probable que el nivel educativo tenga efecto en el riesgo de ser re arrestado.
 
 -   Se puede inferir que haber estado previamente en la cárcel aumenta el riesgo de ser re arrestado con una significancia del 0.01. La magnitud promedio de ese riesgo es la distancia absoluta al uno (*1*); en este caso:
 
 ```{r}
-(carcelantes=abs(1-exp(coef(rcox1)[6])))
+(carcelantes = abs(1 - exp(coef(rcox1)[6])))
 ```
 
-De ahí que, podemos sostener que el riesgo de volver a la cárcel para alguien con apoyo financiero se multiplica por el factor `r 100*round(carcelantes,4)` cada vez que aumenta en uno los años de encarcelamientos previos[^1].
+De ahí que, podemos sostener que el riesgo de volver a la cárcel para alguien con apoyo financiero se multiplica por el factor 9.07 cada vez que aumenta en uno los años de encarcelamientos previos
 
-[^1]: Como la Tabla \@ref(tab:coxtable) muestra intervalos de confianza la interpretación puede darse utilizando tales valores.
+Como la Tabla de la regresión COX muestra intervalos de confianza la interpretación puede darse utilizando tales valores:
 
-Los hazard ratios de la Tabla \@ref(tab:coxtable) (columna derecha) podemos verlos gráficamente en la Figura \@ref(fig:HRplot).
+- Los hazard ratios de la Tabla COX (columna derecha) podemos verlos gráficamente en la siguiente Figura:
 
 ```{r HRplot,message=FALSE, warning=FALSE, fig.cap='Los Hazard Ratios'}
 library(survminer)
-ggforest(rcox1, data = carcel,main = "¿Quiénes tienen mayor riesgo de volver a ser encarcelados?")
+ggforest(rcox1, data = carcel, 
+         main = "¿Quiénes tienen mayor riesgo de volver a ser encarcelados?")
 ```
 
 ## Comparación
 
-Podemos plantear un modelo sin educación. Veamos la Tabla \@ref(tab:sinedu).
+Podemos plantear un modelo sin educación (H2):
 
 ```{r sinedu}
-COX_H1= formula(survival~tuvoApoyoDinero+nivelEduca+vecesEnCarcel)
-COX_H2= formula(survival~tuvoApoyoDinero+vecesEnCarcel)
+COX_H1 = formula(survival ~ tuvoApoyoDinero + nivelEduca + vecesEnCarcel)
+COX_H2 = formula(survival ~ tuvoApoyoDinero + vecesEnCarcel)
 
 #regression
-rcox2 <- coxph(COX_H2,data=carcel)
-modelcox=list('Riesgo de Re arrestado (I)'=rcox2,'Riesgo de Re arrestado (II)'=rcox1)
+rcox2 <- coxph(COX_H2, data = carcel)
+modelcox = list('Riesgo de Re arrestado (I)' = rcox2,
+                'Riesgo de Re arrestado (II)' = rcox1)
 
 #f <- function(x) format(x, digits = 4, scientific = FALSE)
 library(modelsummary)
 modelsummary(modelcox,
              #fmt=f,
-             exponentiate = T, 
-             statistic = 'conf.int',
-             title = "Regresión Cox (sólo Hazard Ratios)",
-             stars = TRUE,
+             exponentiate = T, statistic = 'conf.int',
+             title = "Regresión Cox (sólo Hazard Ratios)", stars = TRUE,
              output = "kableExtra")
 ```
 
-Vemos que las medidas globales de ajuste no son tan diferentes, por lo que es mejor evaluar la significancia de esas diferencias. Veamos la Tabla \@ref(tab:anovacox).
+Vemos que las medidas globales de ajuste no son tan diferentes, por lo que es mejor evaluar la significancia de esas diferencias:
 
 ```{r anovacox}
-anova(rcox2,rcox1)%>%
-knitr::kable(caption = "Tabla anova para comparar modelos")%>%kableExtra::kable_styling(full_width = FALSE)
+anova(rcox2, rcox1) |>
+  knitr::kable(caption = "Tabla anova para comparar modelos") |> 
+  kableExtra::kable_styling(full_width = FALSE)
 ```
 
 Así, añadir nivel educativo no es significativo al 0.05, pero sí lo es al 0.1. Esto daría espacio para sostener la inclusión de nivel educativo en el modelo.
 
-# References
+[Comienzo](#beginning)
