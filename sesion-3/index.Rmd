@@ -137,40 +137,39 @@ histInfo
 
 - 1. El histograma nos muestra una distribución con **sesgo positivo (a la derecha)**. Es decir, **no forma una campana de Gauss**, por ello, debilitaría los calculos de significancia si los datos **no siguen una tendencia lineal**. (Se puede transformar la V.D., pero la interpretación sería compleja).
 
-- 2. Advertimos que nuestra **V.D. representa conteos**: valores enteros positivos. Por ello, la regresión lineal tuvo problemas, ya que asume que la V.D. tiene valores reales y no acotados.
+- 2. Advertimos que nuestra **V.D. representa conteos**: valores enteros positivos (*no decimales*). Por ello, la regresión lineal tuvo problemas, ya que asume que la V.D. tiene valores reales (*valores + y -*) y no acotados ().
 
 **Regresión Poisson [RP]**
 ============================================================
 
+- Se utiliza cuando el resultado es una variable de conteo *Y*, como el número de eventos que ocurren en un período de tiempo o en un área determinada. 
+
 Supuestos del RP [Glen, 2016]:
 
-1.  **Variable Respuesta**: cuantitativa discreta
-    - Es un conteo (Y) por unidad de tiempo o espacio, que puede ser descrita por la distribución Poisson. 
-    - Puede además ser un ratio ($\lambda$) cuando la unidad de tiempo o espacio varía para cada conteo.
+1.  **Variable Respuesta/Resultado/de Conteo**: *Y*
+    - A: Es una *Y* por unidad de tiempo o espacio, que puede ser descrita por la distribución Poisson. 
+    - B: O puede ser un ratio ($\lambda$) cuando la unidad de tiempo o espacio varía para cada conteo. (ACLARAR ESTO)
 
-2.  **Independencia** Las observaciones (filas) no deben tener relación entre sí.
-3.  **Media=Varianza**: equidispersión
-    Otros casos: 
-    - Media > Varianza: sobredispersión
-    - Media < Varianza: Subdispersión
+2.  **Independencia** Las observaciones (filas) no deben tener relación entre sí. Es decir, que no exista multicolinealidad: Fijarnos en el VIF, no considerar a la variable con un puntaje mayor a 5 (problemática y debería eliminarse).
+
+3.  **Media=Varianza: equidispersión (*Poisson*)**: la media de una variable *Y* que se distribuye como Poisson debe ser igual a su varianza. Si no cumple con esto, se debe proceder con otras regresiones:
+    - **Media < Varianza: Subdispersión (*R. quasipoisson*)** La división es mayor que 1
+    - **Media > Varianza: sobredispersión (*R. Binomial Negativa*)** La division es menor que 1
     
-Por definición, la media de una variable que se distribuye como Poisson debe ser igual a su varianza (equidispersión). Si la varianza supera significativamente a la media hablamos de sobredispersión; pero si la media fuera mucho mayor que la varianza tendríamos subdispersión.
-
-4.  **Linealidad**: El logaritmo de la V.D. debe ser una función lineal.
+4.  **Linealidad**: El logaritmo de la V.D. debe ser una función lineal. (línea roja que tienda a ser horizontal y un promedio de residuos cercano a 0.)
 
 Ahora, usemos la RP en la H1:
 
 - comparándolos con el resultado de la regresión lineal controlada por la población:
 
 ```{r rp1rl2,warning=FALSE, message=FALSE, results='asis'}
-
 rp1 = glm(h1, data = salud, 
         offset = log(pob), # Exposure # Variable control 
         family = poisson(link = "log")) # Poisson
 
 # displaying results
-modelslmpoi = list('OLS asegurados (II)'=rl2,
-                 'POISSON asegurados'=rp1)
+modelslmpoi = list('OLS asegurados (II)' = rl2,
+                   'POISSON asegurados' = rp1)
 
 modelsummary(modelslmpoi, title = "Regresiones OLS y Poisson",
              stars = TRUE,
@@ -179,7 +178,9 @@ modelsummary(modelslmpoi, title = "Regresiones OLS y Poisson",
 
 Ahora que tenemos ambas regresiones en la Tabla \@ref(tab:rp1rl2), vemos que 
 
-el modelo Poisson le devuelve efecto a la independiente. Nótese que la Poisson está modelando los conteos, teniendo en cuenta la exposición (*exposure*), añadida usando *offset*. Esto no siempre es necesario, pero en este caso si lo era pues necesitamos representar controlar la *exposure* de manera explícita (la población) (No sería diferente si tuvieramos *hijos por hogar*, *postulaciones por político*).
+el modelo Poisson le devuelve efecto a la independiente. Nótese que la Poisson está modelando los conteos, teniendo en cuenta la exposición (*exposure*), añadida usando *offset*. Esto no siempre es necesario, pero en este caso si lo era pues necesitamos representar/controlar la *exposure* de manera explícita (la población) (No sería diferente si tuvieramos *hijos por hogar*, *postulaciones por político*).
+
+- Para comparar el modelo, debemos fijarnos el mayor valor del AIC (AKAIKE):
 
 La Tabla muestra dos modelos que no se pueden comparar fácilmente, pero podemos verlo de manera gráfica:
 
@@ -195,9 +196,11 @@ La Figura muestra que los valores obtenidos por la regresiones (*fitted values*)
 
 ## Interpretación
 
-Ahoram alteremos la H1 así:
+Ahora alteremos la H1 así:
 
-> H2: A nivel distrital, **la cantidad de personas `pob`** con algun seguro de salud `segu` está afectada por el nivel analfabetismo `analf15` y por la presencia de trabajadores independientes `inde`.
+> H2: A nivel distrital en el 2007, **la cantidad de personas `pob`** con algun seguro de salud `segu` está afectada por el nivel analfabetismo `analf15` y por la presencia de trabajadores independientes `inde`.
+
+Corolario RP hipotesis: espacio / tiempo + V. constante + V.D. + V.I...
 
 ```{r rp1rp2,warning=FALSE, message=FALSE, results='asis'}
 
@@ -223,40 +226,49 @@ La interpretación NO es tan directa como lo era en la regresión lineal. Sin ha
 
 Sin embargo, no es tan sencilla la interpretación de los coeficientes. Para tener una mejor idea, debemos hacer cálculos.
 
-Tengamos primero en cuenta lo que la regresión Poisson ha calculado usando la Ecuación \@ref(eq:poi):
+Tengamos primero en cuenta lo que la regresión Poisson ha calculado usando la Ecuación:
 
 ```{=tex}
 \begin{equation}
-\log(Y) = \log(\lambda) =\alpha + \beta \cdot X + \epsilon (\#eq:poi)
+\log(Y) = \log(\lambda) =\alpha + \beta \cdot X + \epsilon
 \end{equation}
 ```
-Cuando el *exposure* es constante modelamos conteos (Y); cuando no lo es modelamos ratios ($\lambda$)[^2]. Pero, como vemos en la Ecuación \@ref(eq:poi), los coeficiente necesitan ser exponenciados para saber el efecto sobre Y. Veamos la Tabla \@ref(tab:exp-rp2).
 
-[^2]: los conteos con *offset*.
+Cuando el *exposure* es constante modelamos conteos (Y); cuando no lo es modelamos ratios ($\lambda$) (los conteos con *offset*). Pero, como vemos en la Ecuación, los coeficiente necesitan ser exponenciados para saber el efecto sobre Y. Veamos la Tabla:
 
 ```{r exp-rp2,warning=FALSE, message=FALSE, results='asis'}
-
+#cbind(exp(coef(rp2)),exp(confint(rp2))) # Simple version
 f <- function(x) format(x, digits = 4, scientific = FALSE)
-modelsummary(modelsPois,
-             fmt=f,
-             exponentiate = T, 
-             statistic = 'conf.int',
+modelsummary(modelsPois, fmt = f,
+             exponentiate = T, statistic = 'conf.int',
              title = "EXP() de la Regresión Poisson para Interpretación",
-             stars = TRUE,
-             output = "kableExtra")
-# simple version:
-#cbind(exp(coef(rp2)),exp(confint(rp2)))
+             stars = TRUE, output = "kableExtra")
 ```
 
-- Ahora, ambas regresiones tienen los coeficientes exponenciados. En la Poisson será más fácil la interpretación:
+- Ahora, ambas regresiones tienen los coeficientes exponenciados y, también, muestra los intervalos de confianza (exponenciados) en vez de los errores típicos. Nota que mientras en la regresión lineal no deseábamos que nuestro coeficiente esté cerca al cero, es decir, que su intervalo de confianza no incluya al *cero*, aquí no deseamos que el intervalo de confianza incluya al *uno*. 
 
-- También, muestra los intervalos de confianza (exponenciados) en vez de los errores típicos. Nota que mientras en la regresión lineal no deseábamos que nuestro coeficiente esté cerca al cero, es decir, que su intervalo de confianza no incluya al *cero*, aquí no deseamos que el intervalo de confianza incluya al *uno*. 
+- Una vez exponenciado, podemos interpretar los coeficientes de manera más sencilla. Así, para el modelo II:
 
-- Una vez exponenciado, podemos interpretar los coeficientes de manera más sencilla. Así, para el modelo II se ve que 
+- Por cada unidad que aumente el analfabetismo `analf15` la cantidad esperada de asegurados se multiplica por 1.016, es decir, aumentaría en un 1.6% (100x\|1-1.016\|). En la ecuación sería: 1.016^
 
-- por cada unidad que aumente el analfabetismo la cantidad esperada de asegurados se multiplica por 1.016, es decir, aumentaría en un 1.6% (100x\|1-1.016\|). 
+Para ello:
 
-- por cada unidad que aumente los trabajadores independientes, la cantidad esperada de asegurados se multiplica por 0.99, es decir, disminuiría en 1% (100x\|1-0.99\|) [@choueiry_interpret_2022]. Nótese que esta regresión propone un efecto multiplicativo sobre el valor medio de la respuesta (la regresión OLS o Gaussiana propone un efecto aditivo).
+  - 1. Identificamos el exp(coef1): 1.0166 
+  - 2. Es mayor a 1: un incremento de una unidad en la V.I. *X* está asociado con un aumento en el número de eventos esperados (variable de conteo Y) en un cierto porcentaje.
+  - 3. (100x\|1-1.016\|) = 1.6
+
+incremento exponencial: Y = 1.6%  
+Y = 0.5405*1.0166
+^
+
+COEFICIENTE < 1 = DISMINUYE
+
+- por cada unidad que aumente los trabajadores independientes, la cantidad esperada de asegurados se multiplica por 0.99, es decir, disminuiría en 1% (100x\|1-0.99\|) [Choueiry 2022]. Nótese que esta regresión propone un efecto multiplicativo sobre el valor medio de la respuesta (la regresión OLS o Gaussiana propone un efecto aditivo).
+
+
+  - Podemos guiarnos del signo negativo del coeficiente sin exponenciar para advertir la relacion inversa. O también si el coeficiente exponenciado es menor que 1. 
+
+
 
 ````{=html}
 <!--
@@ -291,7 +303,9 @@ Exp.summaryRobusto
 Equidispersión
 ============================================================
 
-Uno de los supuestos en la Regresión Poisson es que la **media** y la **varianza** sean iguales. De los estadigrafos de la Figura \@ref(fig:hisVD) se mostró que estos valores no están cercanos, de hecho la razón varianza - media es `r round(descris$var/descris$media,2)`. Aquí es clara la sobredispersión, pero en caso haya dudas podemos poner a prueba la *hipótesis de equidispersion* [@hilbe_statistical_2017]. Veamos la Tabla \@ref(tab:tabla-disper).
+Uno de los supuestos en la Regresión Poisson es que la **media** y la **varianza** sean iguales. De los estadigrafos de la Figura del histograma de la V.D. se mostró que estos valores no están cercanos: La razón entre la media y la varianza es 51032.13: sobredispersión.
+
+Comprobemos esto con la *hipótesis de equidispersion*: 
 
 ```{r tabla-disper, message=FALSE}
 overdispersion = AER::dispersiontest(rp2, alternative = 'greater')$p.value <
@@ -306,11 +320,11 @@ testResult |> kable(caption = "Test de Equidispersión") |>
   kableExtra::kable_styling()
 ```
 
-La Tabla \@ref(tab:tabla-disper) muestra que es altamente improbable que la varianza sea igual a la media, por lo que se opta por aceptar que lo más probable es que tengamos sobredispersión.
+La Tabla muestra que es altamente improbable que la varianza sea igual a la media, por lo que se opta por aceptar que lo más probable es que tengamos sobredispersión...
 
 ## La Quasi Poisson
 
-La presencia de sobredispersión puede tratarse con la *quasipoisson*; veamos la Tabla \@ref(tab:rqp).
+- La presencia de sobredispersión puede tratarse con la *quasipoisson*:
 
 ```{r rqp, warning=FALSE, message=FALSE, echo=TRUE,results='asis'}
 rqp = glm(h2, data = salud, offset = log(pob),
@@ -320,18 +334,16 @@ modelsPQP=list('POISSON asegurados (II)' = rp2,
                'QUASIPOISSON asegurados (II)' = rqp)
 
 modelsummary(modelsPQP, title = "Regresiones Poisson y QuasiPoisson",
-             stars = TRUE,
-             output = "kableExtra")
+             stars = TRUE, output = "kableExtra")
 ```
 
-la Tabla \@ref(tab:rqp) nos muestra cosas interesantes:
+la Tabla nos muestra cosas interesantes:
 
 -   Los coeficientes son los mismos para ambos modelos:
 
 ```{r, message=FALSE}
 library(arm)
 cbind(coefPoi = coef(rp2), coefQuasiPoi = coef(rqp))
-
 ```
 
 -   Pero no los errores típicos no:
@@ -362,7 +374,7 @@ modelsummary(modelsQPexp, fmt = f,
 
 ## La Binomial Negativa
 
-Otra alternativa ante la sobredispersión es usar la *regresión binomial negativa*. Comparemos todas la regresiones exponenciadas, como se ve en la Tabla \@ref(tab:exp-rbn).
+Otra alternativa ante la sobredispersión es usar la *regresión binomial negativa*. Comparemos todas la regresiones exponenciadas, como se ve en la Tabla:
 
 ```{r exp-rbn,warning=FALSE, message=FALSE, results='asis'}
 h2off = formula(segu ~ analf15 + inde + offset(log(pob)))
@@ -373,19 +385,17 @@ modelsQP_BN = list('Poisson asegurados (II)' = rp2,
                    'Binomial Negativa asegurados (II)' = rbn)
 
 f <- function(x) format(x, digits = 4, scientific = FALSE)
-modelsummary(modelsQP_BN, fmt = f,
-             exponentiate = T,
+modelsummary(modelsQP_BN, fmt = f, exponentiate = T,
              statistic = 'conf.int',
              title = "EXP() de la Regresiones Poisson, Quasi Poisson  y Binomial Negativa",
-             stars = TRUE,
-             output = "kableExtra")
+             stars = TRUE, output = "kableExtra")
 ```
 
 Nótese en la Tabla \@ref(tab:exp-rbn) que los coeficientes obtenidos en la regresión binomial negativa son diferentes a los demas.
 
 # Comparación de modelos
 
-Para la comparación podemos usar el anova, esta vez pidiendo un test chi-cuadrado; veamos el resultado en la Tabla \@ref(tab:anovarall).
+Para la comparación podemos usar el anova, esta vez pidiendo un test chi-cuadrado; veamos el resultado en la Tabla:
 
 ```{r anovarall}
 anova(rp2, rqp, rbn, test = "Chisq") |>
@@ -393,7 +403,7 @@ anova(rp2, rqp, rbn, test = "Chisq") |>
   kableExtra::kable_styling(full_width = FALSE)
 ```
 
-La caída del *Deviance* es tanta para el último caso que la mejor opción es la binomial negativa. Por lo general, la binomial negativa es más utilizada que la quasipoisson, pero la binomial negativa no es apropiada para la subdispersión, mientras que la quasipoisson sí se usa para ese caso. Una manera adicional de comparar es la gráfica. Así, la Tabla \@ref(tab:exp-rbn) se puede ver de manera gráfica en la Figura \@ref(fig:finplots).
+La caída del *Deviance* es tanta para el último caso que la mejor opción es la binomial negativa. Por lo general, la binomial negativa es más utilizada que la quasipoisson, pero la binomial negativa no es apropiada para la subdispersión, mientras que la quasipoisson sí se usa para ese caso. Una manera adicional de comparar es la gráfica. Así, la Tabla de las regresiones exponenciadas (Poisson, Quasi Poisson y Binomial Negativa) se puede ver de manera gráfica en la Figura:
 
 ```{r finplots, fig.cap="Comparación visual de modelos", message=FALSE, warning=FALSE}
 library(ggplot2)
@@ -405,7 +415,7 @@ dotwhisker::dwplot(list(Poisson = rqp,
   geom_vline(xintercept = 1, colour = "grey60", linetype = 2)
 ```
 
-Finalmente, podemos calcular los coeficientes estandarizados [@ibm_spss_computing_2020] para saber cuál de los predictores tiene mayor efecto (ver Tabla \@ref(tab:stdCoefs)).
+Finalmente, podemos calcular los coeficientes estandarizados [@ibm_spss_computing_2020] para saber cuál de los predictores tiene mayor efecto:
 
 ```{r stdCoefs}
 sdVD = sd(salud$segu)
@@ -418,7 +428,6 @@ DF = list(Poisson = sdVIs * coef(rp2)[c(2, 3)] / sdVD,
 DF |> kable(caption = 
               "Coeficientes Standarizados (ordenar vía valores absolutos)") |>
   kableExtra::kable_styling(full_width = F)
-
 ```
 
 <br></br> <br></br> [Comienzo](#beginning) <br></br> <br></br>

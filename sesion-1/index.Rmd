@@ -28,7 +28,7 @@ I. De Correlación a regresión
 
 ```{r}
 library(rio) # Importamos la data:
-hsb = import("https://github.com/luccemhu/EDIT-Clases-E2/raw/main/SESI%C3%93N%201/hsb_ok.xlsx")
+hsb = import("https://github.com/luccemhu/EDIT-Clases-E2/raw/main/sesion-1/hsb_ok.xlsx")
 #str(hsb) # Tipos de datos reconocidos por R, ya que...
 # Todo software lee la data a su modo y no siempre es la que se necesita.
 # Por ello, debemos saber qué significa cada columna, su valor, etc.

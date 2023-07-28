@@ -128,7 +128,7 @@ shapiro.test(reg$residuals)
 
 - La multicolinealidad implica que existe una alta correlación entre las V.I. seleccionadas, lo cual haría redundante incluir ciertas variables
 
-- Lo ideal es que no exista colinealidad
+- Lo ideal es que no exista multicolinealidad
 
 - En el text de VIF, si una variable tiene un puntaje mayor a 5, es problemática y debería eliminarse
 
