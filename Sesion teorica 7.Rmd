@@ -287,6 +287,14 @@ Veamos ambos scores calculados
 ggplot(data=demo,aes(x=cfa_ok,y=efa_ok)) + geom_point() + theme_minimal()
 ```
 
+
+
+
+
+
+
+
+
 **EJERCICIO**
 
 Añada otro concepto latente que use varias variables. Siga todos los pasos anteriores.
