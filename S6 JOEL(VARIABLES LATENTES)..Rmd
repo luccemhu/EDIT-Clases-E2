@@ -46,9 +46,10 @@ library(htmltab)
 
 # links
 WhereIDH=list(page="https://es.wikipedia.org/wiki/Anexo:Pa%C3%ADses_por_%C3%ADndice_de_desarrollo_humano", 
-              xpath='//*[@id="mw-content-text"]/div[1]/table[2]/tbody') # Esto se actualiza
+              xpath='//*[@id="mw-content-text"]/div[1]/table[6]') # Esto se actualiza
 WhereDEMO=list(page="https://es.wikipedia.org/wiki/%C3%8Dndice_de_democracia",
                xpath='//*[@id="mw-content-text"]/div[1]/div[2]/div/table/tbody') # Esto se actualiza
+
 
 #carga
 idh  = htmltab(doc = WhereIDH$page, 
@@ -82,13 +83,17 @@ Por lo visto, hay que cambiar los nombres en ambas tablas.
 ```{r}
 # en IDH
 ## cambio total
-newNames = c('Pais','EsperanzaVida','EscolaridadDuracion','EscolaridadPromedio','PBI')
+newNames = c('Pais', 'EsperanzaVida', 'EscolaridadDuracion', 'EscolaridadPromedio', 
+             'PBI')
 names(idh) = newNames
 
 # en DEMO
 ## Capitalizar
 library(stringr)
 names(demo) = str_to_title(names(demo))
+
+library(tidyverse)
+demo = demo |> select(2:8)
 
 ## sin tildes ni ñs.
 library(stringi)
@@ -122,15 +127,17 @@ str(demo)
 
 ```{r}
 # eliminar coma en los miles:
-idh$PBI=gsub(',','',idh$PBI)
+#idh$PBI = gsub(',', '', idh$PBI)
 # ahora a numerico
-idh[,-1]=lapply(idh[,-1], as.numeric)
+idh[, -1] = lapply(idh[, -1], as.numeric)
 
 # cambiar coma en los decimales:
-demo[,-c(2,9)]=lapply(demo[,-c(2,9)],
-                      function(x){gsub(",",".",x)})
+demo[, -1] = lapply(demo[, -1],
+                          function(x) {
+                            gsub(",", ".", x)
+                          })
 # ahora a numerico
-demo[,-c(2,9)]=lapply(demo[,-c(2,9)], as.numeric)
+demo[, -1] = lapply(demo[, -1], as.numeric)
 ```
 
 Luego de pasar a tipo numérico, las celdas que no tenían un valor numérico adecuado se convirtieron en NAs. Aquí hay que revisar las filas donde eso se generó.
@@ -147,24 +154,22 @@ A partir de lo visto, decidir si se puede completar los valores faltantes. Luego
 
 ```{r}
 ##
-idh[idh$Pais=='Camerún','EscolaridadDuracion']=13.1
-demo[demo$Puesto==48 & !is.na(demo$Puesto),'Pais']='Panama'
+idh[idh$Pais == 'Camerún', 'EscolaridadDuracion'] = 13.1
+demo[demo$Puesto == 48 & !is.na(demo$Puesto), 'Pais'] = 'Panama'
 
 ##
-idh=idh[complete.cases(idh),]
-demo=demo[complete.cases(demo),]
+idh = idh[complete.cases(idh), ]
+demo = demo[complete.cases(demo), ]
 ```
 
 -   **Caracteres de Alfabeto español**: Es preferible eliminarlos.
 
 ```{r}
 # sin tildes
-idh$Pais=stri_trans_general(str = idh$Pais, 
+idh$Pais = stri_trans_general(str = idh$Pais, 
                                id = "Latin-ASCII")
 
-demo[,c(2,9)]=lapply(demo[,c(2,9)],
-                     stri_trans_general,
-                     id = "Latin-ASCII") 
+demo[, c(2, 7)] = lapply(demo[, c(2, 7)], stri_trans_general, id = "Latin-ASCII") 
 ```
 
 ## Merge
@@ -221,7 +226,7 @@ theData = idhdemo[, select]
 # Polycor halla la relación policórica: funciona con variables categóricas y numéricas 
 # Cuando solo se usa con numéricas, calcula el pearson, la correlación.
 library(polycor)
-corMatrix=polycor::hetcor(theData)$correlations
+corMatrix = polycor::hetcor(theData)$correlations
 ```
 
 ```{r, eval=FALSE}
@@ -266,28 +271,34 @@ ggcorrplot(corMatrix)
 4.  Verificar si los datos permiten factorizar: 
 
 - KMO(corMatrix) <- Overall MSA > 0.6 (lo contrario sugiere cambiar esas variables)
+
 ```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
-library(psych)
-psych::KMO(corMatrix) 
 # Busca saber si la data se adecua a un análisis factorial. 
 # El Overall MSA en este caso es 0.90, lo cual es aceptable. 
 # Generalmente, se aceptan MSA mayores a 0.6 
 # (lo contrario sugiere cambiar esas variables) en CC.SS. 
-# KMO relacionado con el tamano de los datos es suficiente 
+# KMO relacionado con el tamaño de los datos es suficiente 
 # para comenzar con el EFA, respecto a la data.
+library(psych)
+psych::KMO(corMatrix) 
 ```
 
-5.  Verificar si la matriz de correlaciones es adecuada
+5.  Verificar si la matriz de correlaciones es adecuada *para donde hay factorial*
 
-Aqui hay dos pruebas:
+Aqui hay dos pruebas *algebraicas*:
 
--   Hnula: La matriz de correlacion es una [matriz identidad](https://en.wikipedia.org/wiki/Identity_matrix)
+- *Nota*: Es bueno que en ambas pruebas salgan FALSE (no puedes continuar si sale true). todavia no comienza el EFA, estos son pasos requisitos para comenzar. Pero tampoco se debe proceder con relaizar un promedio: el true ya indica que estas variables no se comportan para un promedio.
 
+-   1. Hnula: La matriz de correlacion es una [matriz identidad](https://en.wikipedia.org/wiki/Identity_matrix)
+    - De 0 a 1. 
+    - 0 en las demas variables: prueba de identidad: mejor no continuar con el modelo si solo las mismas variable obtienen 1 y las demas cero.
+    
 ```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
 cortest.bartlett(corMatrix, n = nrow(theData))$p.value > 0.05
 ```
 
--   Hnula: La matriz de correlacion es una [matriz singular](http://mathworld.wolfram.com/SingularMatrix.html).
+-   2. Hnula: La matriz de correlacion es una [matriz singular](http://mathworld.wolfram.com/SingularMatrix.html).
+    - No se le puede llevar a una variable factorial, no se puede invertir
 
 ```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
 library(matrixcalc)
@@ -298,6 +309,27 @@ is.singular.matrix(corMatrix)
 6.  Determinar en cuantos factores o variables latentes podríamos redimensionar la data: En este caso, la función *fa.parallel* nos dará la sugerencia:
 
 ```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
+# Te sugiere en qué tantos factores deberían agruparse las variables en base a 
+# qué tan similares son. 
+
+# Lo ideal es que solo tengas 1 factor, pues eso significa que todas las 
+# variables son lo suficientemente similares y correlacionadas para que puedan 
+# agruparse en un solo concepto, en este caso, la democracia. 
+
+# Del mismo si tienes mas variables (8 quizas) y las agrupan en 2 factores; 
+# en este caso, si solo sale 1 factor, mejor buscar otras variables para los 
+# conceptos que estas utilizando. Para qué inventar conceptos si al final 
+# es igual con otro concepto.
+
+# fa.parallel nos da la sugerencia de cuentos factores debemos elegir. 
+# EFA: evitamos el sesgo # La medicion tambien puede fallar, en esta parte podemos advertirla. 
+# Constantemente simplifacamos (inconscientemente), es parte de nosotros.
+
+# IOT: internet de las cosas genera BIG DATA
+# Mala interpretacion --> mala interpretacion (politica)
+# Tecnicas no supervisadas (no darle una pista, solo las variables) el programa decide juntarlas. 
+# Darle la Y (tecnica supervisada) regresiones
+
 fa.parallel(theData, fa = 'fa', correct = T, plot = F)
 ```
 
@@ -310,12 +342,17 @@ Se sugieren 2, lo esperado, sigamos.
 ```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
 library(GPArotation)
 resfa <- fa(theData,
-            nfactors = 2,
-            cor = 'mixed',
-            rotate = "varimax",
-            fm = "minres")
+            nfactors = 2, # Dos factores
+            cor = 'mixed', # Matriz policórica
+            rotate = "varimax", # Rotación varimax. Asegura que se traten 
+            # de dos variables latentes diferentes 
+            # en el caso que se use 1 factor, no es relevante
+            fm = "minres") # Tecnica de factorizacion
 print(resfa$loadings)
 ```
+
+El MR1 usualmente se considera como "bueno" a partir de 0.4. En este caso, el que menos aporta es la cultura política. La proporción de la varianza nos muestra todo lo que tienen en común las variables en relación con el índice (democracia). En este caso, tienen un 76% en común, ha recuperado un 76% de información.
+
 
 -   Resultado mejorado (solo apropiado si hay más de un factor):
 
@@ -323,9 +360,12 @@ print(resfa$loadings)
 print(resfa$loadings, cutoff = 0.5)
 ```
 
+Cumulative Var 0.393 0.763 --> La varianza acumulada (suma de las varianzas acumuladas:): me quedo con 76% de informacion de reducir las 9 dimensiones a 2. 
+  - Nota: Si hay un concepto que se encuentra en ambos factores, mejor no utilizarlo.
+
 Cuando logramos que cada variable se vaya a un factor, tenemos una *estructura simple*.
 
--   Resultado visual: El resultado lo podemos ver de manera gráfica en la Figura \@ref(fig:faDiagram).
+-   Resultado visual (graficamente): 
 
 ```{r faDiagram, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE, fig.cap="Variables organizadas en Factores"}
 
@@ -337,24 +377,33 @@ fa.diagram(resfa,main = "Resultados del EFA")
 -   ¿Qué variables aportaron mas a los factores?
 
 ```{r}
-sort(resfa$communality)
+# Sort lo ordena en orden ascendente 
+# Communality: podemos advertir su fuerza. para identificar cuales son las 
+# variables que han contruibuido mas
+sort(resfa$communality) 
 ```
 
 -   ¿Qué variables contribuyen a más de un factor?
 
 ```{r}
+# Se espera que este cerca a 1. advierte su comportamiento cualitativo. 
+# En este caso, indica que la cultura politica se relaciona más con otras variables 
 sort(resfa$complexity)
 ```
 
 9.  Valores proyectados: Podemos calcular dos *indices* que resuman los dos factores encontrados.
+  
+- Ahora si realizamos el score (puntuacion)
 
 ```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
-library(magrittr)
 as.data.frame(resfa$scores) |> head()
 ```
 
-Les daremos por nombre 'demos_efa' y 'desahu_efa' a esas dos columnas. Dado que tenemos el indice de democracia en la data original, comparémoslo con el recién calculado, via el *scatterplot* de la Figura \@ref(fig:scatterEFAdemo1).
+Les daremos por nombre `demos_efa` y `desahu_efa` a esas dos columnas. Dado que tenemos el indice de democracia en la data original, comparémoslo con el recién calculado, via el *scatterplot*:
 
+El nombre sería democracia. Y debe estar correlacionado con el puntaje propuesto por TheEconomist:
+
+  - retomamos la base del merge, no la base que paso por los requisitos
 ```{r scatterEFAdemo1, warning=FALSE, message=FALSE,fig.cap="Comparando Indice de Democracia con el Score obtenido en EFA"}
 
 idhdemo$demos_efa = resfa$scores[, 1]
@@ -364,6 +413,8 @@ ggplot(data = idhdemo, aes(x = Puntuacion, y = demos_efa)) +
   geom_point() + theme_minimal() + 
   labs(x = "Indice de Democracia (original)", y = "Indice de Democracia EFA")
 ```
+
+- Importante normalizar para comparar
 
 Nota que los rangos de los valores en la Figura \@ref(fig:scatterEFAdemo1) no son los mismos. La Figura \@ref(fig:scatterEFAdemo2) muestra tales cambios.
 
@@ -385,12 +436,14 @@ ggplot(data = idhdemo, aes(x = Puntuacion, y = demos_efa_ok)) +
 
 # Análisis Factorial Confirmatorio
 
-El análisis factorial confirmatorio (CFA) lo usamos cuando ya tenemos una teoría y queremos confirmar que los datos pueden reflejar los conceptos o variables latentes asumidas [@costa_confirmatory_nodate,@orcan_exploratory_2018].
+El análisis factorial confirmatorio (CFA) lo usamos cuando ya tenemos una teoría y queremos confirmar que los datos pueden reflejar los conceptos o variables latentes asumidas.
 
+- Si la exploración apoyaba nuestro marco teórico, podemos proponer cómo construir los indices:
 ```{r}
 modelCFA <- ' democracia  =~ ProcesoElectoralyPluralismo + FuncionamientodelGobierno + Participacionpolitica + Culturapolitica + Derechosciviles
 
 desaHumano=~EsperanzaVida+EscolaridadDuracion+EscolaridadPromedio+PBI'
+# =~ significa que democracia se explica por esas variables: CFA
 ```
 
 Ahora vemos qué arroja el modelo:
@@ -406,6 +459,8 @@ cfa_fit <- cfa(modelCFA, data = theDataNorm,
 summary(cfa_fit)
 ```
 
+  - *AQUI FIJARNOS EN EL LATENT VARIABLES*
+
 Averigüemos qué tan bien salió el modelo:
 
 ```{r}
@@ -413,29 +468,32 @@ allParamCFA = parameterEstimates(cfa_fit, standardized = T)
 allFitCFA = as.list(fitMeasures(cfa_fit))
 ```
 
--   El ChiSquare es NO significativo? (p_value debe ser mayor a 0.05 para que sea bueno)
+-   El ChiSquare es NO significativo? (p_value debe ser mayor a 0.05 para que sea bueno)  Se busca que no lo sea. 
+  + Si cada indicador tiene una buena conexión con su latente (ver p valor):
+  + En este casi, si sale significativo
 
 ```{r}
-
 allFitCFA[c("chisq", "df", "pvalue")] # pvalue>0.05
 ```
 
 -   El Índice Tucker Lewis es mayor a 0.9?
 
 ```{r,echo=TRUE}
-allFitCFA$tli 
+allFitCFA$tli # > 0.90 (no redondear)
 ```
 
 -   La Raíz del error cuadrático medio de aproximación es menor a 0.05?
 
 ```{r,echo=TRUE}
-allFitCFA[c('rmsea.ci.lower', 'rmsea' , 'rmsea.ci.upper')] 
+# No es menor -- $rmsea [1] 0.1497624
+allFitCFA[c('rmsea.ci.lower', 'rmsea' , 'rmsea.ci.upper')] # 0.05 en el Int de Conf?
 ```
 
 Ya sabemos que las latentes no cumplen a cabalidad los requisitos, pero aún así calculamos las puntuaciones obtenidas por esta vía.
+  - Ya sabemos que no hay buen augurio.
 
 ```{r}
-scorescfa = normalize(lavPredict(cfa_fit),
+scorescfa = normalize(lavPredict(cfa_fit), # lavPredict  --> para calcular los scores 
                     method = "range",
                     margin = 2, # by column
                     range = c(0, 10))
@@ -444,7 +502,9 @@ idhdemo$demos_cfa_ok = scorescfa[, 1]
 idhdemo$desahu_cfa_ok = scorescfa[, 2]
 ```
 
-Veamos que tanto se parece el score obtenido via CFA con la puntuación original en la Figura \@ref(fig:scatterCFAdemo).
+Veamos que tanto se parece el score obtenido via CFA con la puntuación original:
+
+- De ahi que: Veamos ambos scores calculados
 
 ```{r scatterCFAdemo,fig.cap="Comparación Indice de Democracia con Score CFA con puntuación original"}
 ggplot(data = idhdemo, aes(x = Puntuacion, y = demos_cfa_ok)) + 
@@ -453,7 +513,7 @@ ggplot(data = idhdemo, aes(x = Puntuacion, y = demos_cfa_ok)) +
        y = "Indice de Democracia CFA (cambiado)")
 ```
 
-Podemos ver los resultados del CFA en la Figura \@ref(fig:cfaPlot).
+Podemos ver los resultados del CFA en la Figura:
 
 ```{r cfaPlot, fig.cap="Representación del CFA - Democracia y IDH"}
 library(lavaanPlot)
@@ -515,4 +575,34 @@ semPaths(sem_fit, residuals = F,
          edge.label.cex = 1.2, layout = "circle2")
 ```
 
+
+  **EJERCICIO**
+
+Añada otro concepto latente que use varias variables. Siga todos los pasos anteriores.
+
+```{r}
+demo$Country=gsub('Â'," ",demo$Country)
+
+demo$Country =trimws(demo$Country,which=c("left"),whitespace = "[\\h\\v]")
+```
+
+```{r}
+library(rio)
+HDI = import("HDI_modified.xlsx")
+str(HDI)
+```
+
+```{r}
+HDI$Country=HDI$...1
+HDI=HDI[,-1]
+
+HDI= HDI[,c(4,1,2,3)]
+```
+
+
+```{r}
+demo=merge(demo,HDI)
+```
+
+#replicar con nuestras bases de datos 
 <br></br> <br></br> [Comienzo](#beginning) <br></br> <br></br>
