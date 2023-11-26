@@ -391,6 +391,9 @@ sort(resfa$communality)
 sort(resfa$complexity)
 ```
 
+
+
+
 9.  Valores proyectados: Podemos calcular dos *indices* que resuman los dos factores encontrados.
   
 - Ahora si realizamos el score (puntuacion)
